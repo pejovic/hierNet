@@ -100,7 +100,6 @@ head(compute.interactions.c(mm[,c(1:19)],diagonal = FALSE)[,intind])
 
 hierNet.varimp(hnet,x=HTrans.df[,1:13],y=H)
 
-aa
 
 
 
