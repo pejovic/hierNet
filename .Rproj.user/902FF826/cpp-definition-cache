@@ -1,0 +1,323 @@
+[
+    {
+        "definitions" : [
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 68,
+                "name" : "onerow_R(double *, int *, double *, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@onerow_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 73,
+                "name" : "onerow_withdiag_R(double *, int *, int *, double *, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@onerow_withdiag_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 78,
+                "name" : "compute_yhat_zz_R(double *, int *, int *, double *, int *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@compute_yhat_zz_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 83,
+                "name" : "compute_phat_zz_R(double *, int *, int *, double *, int *, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@compute_phat_zz_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 88,
+                "name" : "prox_zz_R(double *, int *, int *, double *, int *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_zz_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 94,
+                "name" : "ggstep_zz_R(double *, int *, int *, double *, int *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ggstep_zz_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 100,
+                "name" : "ggdescent_R(double *, int *, int *, double *, int *, double *, double *, double *, double *, double *, int *, double *, double *, double *, double *, int *, double *, double *, int *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ggdescent_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 109,
+                "name" : "ggdescent_logistic_R(double *, int *, int *, double *, int *, double *, double *, double *, double *, double *, int *, double *, double *, double *, double *, double *, int *, double *, double *, int *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ggdescent_logistic_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 118,
+                "name" : "compute_dot_grad_del(double *, int, int, int, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@compute_dot_grad_del"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 175,
+                "name" : "compute_yhat_zz(double *, int, int, double *, int, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@compute_yhat_zz"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 240,
+                "name" : "compute_phat_zz(double *, int, int, double *, int, double, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@compute_phat_zz"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 248,
+                "name" : "ComputeInteractionsWithIndices(double *, int *, int *, double *, int *, int *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ComputeInteractionsWithIndices"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 270,
+                "name" : "ComputeInteractionsWithDiagWithIndices(double *, int *, int *, double *, int *, int *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ComputeInteractionsWithDiagWithIndices"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 293,
+                "name" : "ComputeFullInteractions(double *, int *, int *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ComputeFullInteractions"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 315,
+                "name" : "ggdescent(double *, int, int, double *, int, double *, double, double, double, double *, int, double *, double *, double *, double, int, double, double, int, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ggdescent"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 382,
+                "name" : "ggdescent_logistic(double *, int, int, double *, int, double *, double, double, double, double *, int, double *, double *, double *, double *, double, int, double, double, int, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ggdescent_logistic"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 454,
+                "name" : "ggstep(double *, int, int, double *, int, double *, double, double, double, double *, double *, double *, double *, double, double, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ggstep"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 535,
+                "name" : "prox_zz(double *, int, int, double *, int, double *, double, double, double, double *, double *, double *, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_zz"
+            },
+            {
+                "column" : 8,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 551,
+                "name" : "compute_logistic_loss(double *, int, int, double *, int, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@compute_logistic_loss"
+            },
+            {
+                "column" : 8,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 566,
+                "name" : "penalty(double *, int, int, int, double, double, double, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@penalty"
+            },
+            {
+                "column" : 8,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 595,
+                "name" : "compute_logistic_objective(double *, int, int, double *, int, double *, double, double, double, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@compute_logistic_objective"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 605,
+                "name" : "ggstep_logistic2(double *, int, int, double *, int, double *, double, double, double, double *, double *, double *, double *, double *, double, double, double *, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ggstep_logistic2"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 712,
+                "name" : "prox_zz_logistic(double *, int, int, double *, int, double *, double, double, double, double *, double *, double *, double *, double *, double, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_zz_logistic"
+            },
+            {
+                "column" : 8,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 743,
+                "name" : "prox_objective(double *, int, int, double *, int, double *, double, double, double, double *, double *, double *, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_objective"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 796,
+                "name" : "prox_zz_given_r(double *, int, int, double *, int, double *, double, double, double, double *, double *, double *, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_zz_given_r"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 805,
+                "name" : "prox_zz_given_r_nodiag(double *, int, int, double *, double *, double, double, double, double *, double *, double *, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_zz_given_r_nodiag"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 883,
+                "name" : "prox_zz_given_r_withdiag_R(double *, int *, int *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_zz_given_r_withdiag_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 889,
+                "name" : "prox_zz_given_r_withdiag(double *, int, int, double *, double *, double, double, double, double *, double *, double *, double *, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@prox_zz_given_r_withdiag"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 972,
+                "name" : "onerow(double *, int, double *, double, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@onerow"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 1094,
+                "name" : "onerow_withdiag(double *, int, int, double *, double, double, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@onerow_withdiag"
+            },
+            {
+                "column" : 8,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 1236,
+                "name" : "f(double, double *, int, double *, double, double)",
+                "parent_name" : "",
+                "usr" : "c:@F@f"
+            },
+            {
+                "column" : 8,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 1252,
+                "name" : "f_withdiag(double, double *, int, int, double *, double, double)",
+                "parent_name" : "",
+                "usr" : "c:@F@f_withdiag"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 1273,
+                "name" : "f_R(double *, double *, int *, double *, double *, double *, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@f_R"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 1278,
+                "name" : "PrintMatrix(double *, int, int)",
+                "parent_name" : "",
+                "usr" : "c:@F@PrintMatrix"
+            },
+            {
+                "column" : 6,
+                "file" : "D:/_R projects/hierNet/src/hierNet.c",
+                "kind" : 6,
+                "line" : 1288,
+                "name" : "ComputeCrossProd(double *, int, int, double *, int, double *)",
+                "parent_name" : "",
+                "usr" : "c:@F@ComputeCrossProd"
+            }
+        ],
+        "file" : "D:/_R projects/hierNet/src/hierNet.c",
+        "file_last_write" : 1457257182
+    }
+]

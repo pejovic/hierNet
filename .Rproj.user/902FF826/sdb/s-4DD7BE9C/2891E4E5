@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "## 3D Penalized regression with interactions \n\npenint3D<-function(fun,regdat,contVar,flist,lambda=seq(0,5,0.1),int=TRUE,depth.fun=list(\"linear\",\"nspline\",\"poly\"),df=4,deg=3,preProc=TRUE){\n  \n  tvar<-as.character(fun)[2]\n  covs<-gsub(\"[[:space:]]\", \"\", as.character(fun)[3])\n  covs<-unlist(strsplit(covs, \"+\", fixed = TRUE))\n  depth<-covs[length(covs)]\n  covs<-covs[-length(covs)]\n  \n  \n  if(int==TRUE){\n    fun<-as.formula(paste(tvar, \"~\" ,paste(covs,depth,sep=\"*\", collapse=\"+\"),sep=\"\"))\n  } else {fun<-fun}\n  \n  \n  \n  if(preProc==TRUE){\n    preProcValues <- preProcess(regdat[,contVar], method = c(\"center\", \"scale\"))\n    Trans.df<-cbind(predict(preProcValues, regdat[,contVar]),regdat[,-which(names(regdat) %in% contVar)])\n  }\n  \n  modmat <- model.matrix(fun ,Trans.df)[,-1] #fm.int.lm.As, # fm.GSIF.int.lm.As\n  # removing nzv varaibles \n  nzv <- nearZeroVar(modmat)\n  if(sum(nzv)!=0){modmat <- modmat[, -nzv]}else{modmat<-modmat}\n  \n  # removing correlated variables \n  corr_mat <- cor(modmat)\n  too_high <- findCorrelation(corr_mat, cutoff = .9)\n  if(sum(too_high)!=0){modmat <- modmat[, -too_high]}else{modmat<-modmat}\n  \n  \n  allData<-cbind(regdat[,paste(tvar)],modmat,regdat[,c(\"ID\",\"longitude\",\"latitude\")])\n  names(allData)<-gsub(\"\\\\(altitude,.df.=.4\\\\)\",\"\",names(allData))\n  \n  results<-data.frame(lambda=rep(NA,length(flist)),RMSE=rep(NA,length(flist)),Rsquared=rep(NA,length(flist)))\n  coef.list=as.list(rep(NA,length(strat)))\n  for(i in 1:length(flist)){\n    ind<-which(allData$ID %in% do.call(c,flist[-i]))\n    TrainData<-as.data.frame(do.call(cbind,allData[ind,]))\n    Train.ID.index<-flist[-i]\n    TestData<-as.data.frame(do.call(cbind,allData[ind,]))\n    Test.ID.Index<-flist[i]\n    \n    folds1<-length(Train.ID.index)\n    folds.list1<-as.list(rep(NA,folds1))\n    names(folds.list1)<-paste(\"fold\",c(1:folds1),sep = \"\")\n    foldid<-rep(NA,dim(TrainData)[1])\n    for(j in 1:length(Train.ID.index)){\n      folds.list1[[j]]<-which(TrainData$ID %in% Train.ID.index[[j]])\n      foldid[folds.list1[[j]]]<-j\n    }\n    \n    TrainData<-TrainData[,1:(dim(TrainData)[2]-3)]\n    TestData<-TestData[,1:(dim(TestData)[2]-3)]\n    #lambdaGrid <- seq(0,2.5,0.05)#10^seq(10,-2, length =100)\n    lasso.mod=cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure=\"mse\")\n    lasso.pred<-predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))\n    obs.pred<-data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred))\n    coef.list[[i]]<-predict(lasso.mod,type=\"coefficients\",s=lasso.mod$lambda.min)\n    dfresults<-data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred)[1],Rsquared=defaultSummary(obs.pred)[2])\n    results[i,]<-dfresults\n  }\n  coef.mat<-do.call(cbind,coef.list)\n  out<-list(measure=results,coef=coef.mat)\n  return(out)\n}\n",
+    "created" : 1457277998513.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3806066569",
+    "id" : "2891E4E5",
+    "lastKnownWriteTime" : 1457278029,
+    "last_content_update" : 1457278029310,
+    "path" : "D:/_R projects/hierNet/R/penint3D.R",
+    "project_path" : "R/penint3D.R",
+    "properties" : {
+        "tempName" : "Untitled2"
+    },
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
