@@ -19,11 +19,6 @@ library(hierNet)
 gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
 utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
 
-source(paste(getwd(),"R","funcs.R",sep="/"))
-#save(envir	=	env,	"my-script.Rdata")
-#	Later,	in	another	R	session
-#load("my-script.Rdata")
-
 load(paste(getwd(),"inst","extdata","gridmaps.RDa",sep="/"))
 bor <- join(read.csv(paste(getwd(),"inst","extdata","Profili_sredjeno_csv.csv",sep="/")), read.csv(paste(getwd(),"inst","extdata","Koordinate_csv.csv",sep="/")), type="inner")
 bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
@@ -87,6 +82,25 @@ penint3D(fun=fm.H,regdat=H.df,lambda=10^seq(10,-2,length=100),contVar=contVar,in
 #================= test for hierNet modification ===================================================================
 source(paste(getwd(),"R","funcs.R",sep="/"))
 
+H.df[,c("altitude",sm2D.lst[1:11])]<-apply(H.df[,c("altitude",sm2D.lst[1:11])],2,scale)
+
+mm <- model.matrix(fm.H ,H.df)[,-1] #fm.int.lm.As, # fm.GSIF.int.lm.As
+nzv <- nearZeroVar(mm)
+names(data.frame(mm)[, nzv])
+if(sum(nzv) != 0){mm <- mm[, -nzv]}else{mm <- mm}
+
+H <- H.df$Humus
+
+hnet<-hierNet(x=mm[,c(1:19)],y=H,lam=0.3)#,zz=mm[,20:34])
+
+nn<-names(data.frame(compute.interactions.c(mm[,c(1:19)],diagonal = FALSE)))
+intind<-which(nn %in% grep("altitude", nn, value = TRUE))
+head(compute.interactions.c(mm[,c(1:19)],diagonal = FALSE)[,intind])
+
+
+hierNet.varimp(hnet,x=HTrans.df[,1:13],y=H)
+
+aa
 
 
 
