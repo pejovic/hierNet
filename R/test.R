@@ -61,7 +61,7 @@ sm2D.lst<-names(H.df)[c(4:16)]
 #====================== formulas ===================================================
 fm.H <- as.formula(paste("Humus ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
 fm.int.H<- as.formula(paste("Humus ~",paste(sm2D.lst,"altitude",sep="*", collapse="+"),sep=""))
-fm.GSIF.H <- as.formula(paste("Humus ~", paste(c(sm2D.lst,"ns(altitude,df=4)"), collapse="+")))
+fm.GSIF.H <- as.formula(paste("Humus ~", paste(c(sm2D.lst,"altitude","ns(altitude,df=4)"), collapse="+")))
 fm.GSIF.int.H <- as.formula(paste("Humus ~",paste(paste(sm2D.lst,"altitude",sep="*" ,collapse="+"),"ns(altitude,df=4)",sep="+")))
 fm.GSIF.int.H1 <- as.formula(paste("Humus ~",paste(paste(sm2D.lst,"poly(altitude,3)",sep="*",collapse="+"))))
 #===============================================================================================
@@ -88,10 +88,12 @@ source(paste(getwd(),"R","funcs.R",sep="/"))
 
 H.df[,c("altitude",sm2D.lst[1:11])]<-apply(H.df[,c("altitude",sm2D.lst[1:11])],2,scale)
 
-mm <- model.matrix(fm.H ,H.df)[,-1] #fm.int.lm.As, # fm.GSIF.int.lm.As
+mm <- model.matrix(fm.GSIF.H ,H.df)[,-1] #fm.int.lm.As, # fm.GSIF.int.lm.As
 nzv <- nearZeroVar(mm)
 names(data.frame(mm)[, nzv])
 if(sum(nzv) != 0){mm <- mm[, -nzv]}else{mm <- mm}
+
+colnames(mm)<-gsub("\\(altitude,.df.=.4\\)","",colnames(mm))
 
 H <- H.df$Humus
 
@@ -114,7 +116,10 @@ plot(fitcv)
 # main effect estimates
 fit$bp[,which(fitcv$lamhat.1se==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat.1se==fit$lamlist), drop = F]
 
-
+# lamlist
+# kvadratni clanovi
+# izlaz iz hiernet
+# 
 
 
 
