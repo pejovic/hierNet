@@ -15,6 +15,7 @@ library(splines)
 library(glmnet)
 library(glinternet)
 library(hierNet)
+library(magrittr)
 
 gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
 utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
@@ -68,6 +69,8 @@ fm.GSIF.int.H1 <- as.formula(paste("Humus ~",paste(paste(sm2D.lst,"poly(altitude
 #================== test for stratfold3d and penint3D ============================================
 source(paste(getwd(),"R","stratFold3D.R",sep="/"))
 source(paste(getwd(),"R","penint3D.R",sep="/"))
+source(paste(getwd(),"R","plotfolds.R",sep="/"))
+
 
 fun<-fm.H
 regdat<-H.df
@@ -75,8 +78,9 @@ contVar<-sm2D.lst[1:11]
 targetVar<-"Humus"
 
 
-strat<-stratfold3d(targetVar="Humus",regdat=H.df,folds=6,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE,plot=TRUE)
+strat<-stratfold3d(targetVar="Humus",regdat=H.df,folds=6,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
 flist<-strat$folds
+plotfolds(strat,"Humus")
 penint3D(fun=fm.H,regdat=H.df,lambda=10^seq(10,-2,length=100),contVar=contVar,int=TRUE,flist=flist)
 
 #================= test for hierNet modification ===================================================================
@@ -91,16 +95,40 @@ if(sum(nzv) != 0){mm <- mm[, -nzv]}else{mm <- mm}
 
 H <- H.df$Humus
 
-hnet<-hierNet(x=mm[,c(1:19)],y=H,lam=0.3)#,zz=mm[,20:34])
+X <- hierNet::compute.interactions.c(mm,diagonal=FALSE)
+head(X)
+
+
+(columns.to.keep <- c(paste0(names(data.frame(mm)), ":",names(data.frame(mm))), X %>%
+                        colnames() %>%
+                        grep("altitude" %>% as.character(),., value = T)))
+
+X[,colnames(X) %ni% columns.to.keep ] <- 0
+fit = hierNet.path(mm,H, zz = X,diagonal=FALSE)
+fitcv = hierNet.cv(fit,mm,H)
+
+print(fitcv)
+plot(fitcv)
+# matrix of estimated interaction coefficients
+(d <- fit$th[,,which(fitcv$lamhat.1se==fit$lamlist)])
+# main effect estimates
+fit$bp[,which(fitcv$lamhat.1se==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat.1se==fit$lamlist), drop = F]
+
+
+
+
+
+hnet<-hierNet(x=mm[,c(1:19)],y=H,lam=0.3)#,diagonal=FALSE)#,zz=mm[,20:34])
 
 nn<-names(data.frame(compute.interactions.c(mm[,c(1:19)],diagonal = FALSE)))
 intind<-which(nn %in% grep("altitude", nn, value = TRUE))
 head(compute.interactions.c(mm[,c(1:19)],diagonal = FALSE)[,intind])
 
+interactions<-(compute.interactions.c(mm[,c(1:19)],diagonal = FALSE)[,intind])
 
 hierNet.varimp(hnet,x=HTrans.df[,1:13],y=H)
 
-
+hnet<-hierNet(x=mm[,c(1:19)],y=H,lam=0.3,diagonal=FALSE,zz=interactions)
 
 
 

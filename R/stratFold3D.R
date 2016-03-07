@@ -1,6 +1,6 @@
 # Create stratified folds
 
-stratfold3d <- function(targetVar,regdat,folds=6,cent=3,preProc=TRUE,seed=666,dimensions=list("2D","3D"),IDs=TRUE,sum=FALSE,plot=FALSE){
+stratfold3d <- function(targetVar,regdat,folds=6,cent=3,preProc=TRUE,seed=666,dimensions=list("2D","3D"),IDs=TRUE,sum=FALSE){
   
   dimensions<-dimensions[[1]]
   if(dimensions=="2D"){
@@ -62,17 +62,7 @@ stratfold3d <- function(targetVar,regdat,folds=6,cent=3,preProc=TRUE,seed=666,di
   if(IDs==TRUE){index.list=(ID.list)}else{index.list=(folds.list)}
   sum.list<-list(allData,index.list,sum.list,by(allData[,paste(targetVar)],allData$fold,summary))
   names(sum.list)<-c("Data","folds","altitude summary",paste(targetVar,"summary", sep=" "))
-  
-  if(plot==TRUE){
-    
-    allData.unique<-ddply(allData,.(ID),here(summarize),target=mean(eval(parse(text=targetVar))),longitude=longitude[1],latitude=latitude[1],fold=fold[1])
-    q <- ggplot(allData.unique,aes(x = longitude, y = latitude))
-    r <- q +geom_point(aes(size = sqrt(target/pi)), pch = 21, show.legend = FALSE) + scale_size_continuous(range=c(1,10))
-    r <- r + facet_wrap(~ fold)
-    r<-r + aes(fill = fold)
-    plot(r)
-  }
-  
+
   if(sum==TRUE){return(sum.list)}else{return(sum.list[[1]])}
 }
 
