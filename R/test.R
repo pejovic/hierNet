@@ -22,11 +22,12 @@ utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.0101
 
 load(paste(getwd(),"inst","extdata","gridmaps.RDa",sep="/"))
 bor <- join(read.csv(paste(getwd(),"inst","extdata","Profili_sredjeno_csv.csv",sep="/")), read.csv(paste(getwd(),"inst","extdata","Koordinate_csv.csv",sep="/")), type="inner")
+bor$hdepth<-bor$Bottom-bor$Top
 bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
 bor <- bor[, - c( 7:12,14,15,16,17 )]
-names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","Humus","As","Co","x","y","altitude")
+names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","Humus","As","Co","x","y","hdepth","altitude")
 
-bor.Humus.xy <- bor[complete.cases(bor[,c("ID","x","y","altitude","Humus")]),c("ID","x","y","altitude","Humus")] 
+bor.Humus.xy <- bor[complete.cases(bor[,c("ID","x","y","altitude","Humus")]),c("ID","x","y","hdepth","altitude","Humus")] 
 bor.Humus.xy <- plyr::rename(bor.Humus.xy, replace=c("x" = "longitude", "y" = "latitude"))
 coordinates(bor.Humus.xy) <- ~ longitude + latitude
 proj4string(bor.Humus.xy) <- CRS(utm)
@@ -56,7 +57,7 @@ H.df <- H.df[order(-H.df$altitude),]
 head(H.df)
 names(H.df)
 
-sm2D.lst<-names(H.df)[c(4:16)]
+sm2D.lst<-names(H.df)[c(5:16)]
 
 #====================== formulas ===================================================
 fm.H <- as.formula(paste("Humus ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
@@ -77,18 +78,19 @@ regdat<-H.df
 contVar<-sm2D.lst[1:11]
 targetVar<-"Humus"
 
-
-strat<-stratfold3d(targetVar="Humus",regdat=H.df,folds=6,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
+set.seed(432)
+strat<-stratfold3d(targetVar="Humus",regdat=H.df,folds=10,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
 flist<-strat$folds
-plotfolds(strat,"Humus")
-penint3D(fun=fm.H,regdat=H.df,lambda=10^seq(10,-2,length=100),contVar=contVar,int=TRUE,flist=flist)
-
+#plotfolds(strat,"Humus")
+rez<-penint3D(fun=fm.H,regdat=H.df,lambda=10^seq(-5,5,length=110),contVar=contVar,int=TRUE,flist=flist)
+rez$measure
+summary(rez$measure[1:length(flist),])
 #================= test for hierNet modification ===================================================================
 source(paste(getwd(),"R","funcs.R",sep="/"))
 
 H.df[,c("altitude",sm2D.lst[1:11])]<-apply(H.df[,c("altitude",sm2D.lst[1:11])],2,scale)
 
-mm <- model.matrix(fm.GSIF.H ,H.df)[,-1] #fm.int.lm.As, # fm.GSIF.int.lm.As
+mm <- model.matrix(fm.H ,H.df)[,-1] #fm.int.lm.As, # fm.GSIF.int.lm.As
 nzv <- nearZeroVar(mm)
 names(data.frame(mm)[, nzv])
 if(sum(nzv) != 0){mm <- mm[, -nzv]}else{mm <- mm}
@@ -100,13 +102,13 @@ H <- H.df$Humus
 X <- hierNet::compute.interactions.c(mm,diagonal=FALSE)
 head(X)
 
-
+"%ni%" <- Negate("%in%")
 (columns.to.keep <- c(paste0(names(data.frame(mm)), ":",names(data.frame(mm))), X %>%
                         colnames() %>%
                         grep("altitude" %>% as.character(),., value = T)))
 
 X[,colnames(X) %ni% columns.to.keep ] <- 0
-fit = hierNet.path(mm,H, zz = X,diagonal=FALSE)
+fit = hierNet.path(mm,H, zz = X,diagonal=FALSE,strong=TRUE)
 fitcv = hierNet.cv(fit,mm,H)
 
 print(fitcv)
