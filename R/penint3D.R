@@ -1,4 +1,6 @@
 ## 3D Penalized regression with interactions 
+## Ubaciti hier==TRUE parametar pa ponoviti petlju, razdvojiti ova dva pristupa.
+
 
 penint3D<-function(fun,regdat,contVar,flist,lambda=seq(0,5,0.1),int=TRUE,depth.fun=list("linear","nspline","poly"),df=4,deg=3,preProc=TRUE){
   
@@ -34,13 +36,14 @@ penint3D<-function(fun,regdat,contVar,flist,lambda=seq(0,5,0.1),int=TRUE,depth.f
   allData<-cbind(regdat[,paste(tvar)],modmat,regdat[,c("ID","longitude","latitude")])
   names(allData)<-gsub("\\(altitude,.df.=.4\\)","",names(allData))
   
-  results<-data.frame(lambda=rep(NA,length(flist)),RMSE=rep(NA,length(flist)),Rsquared=rep(NA,length(flist)))
+  results<-data.frame(lambda=rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
   coef.list=as.list(rep(NA,length(strat)))
+  pred<-data.frame()
   for(i in 1:length(flist)){
     ind<-which(allData$ID %in% do.call(c,flist[-i]))
     TrainData<-as.data.frame(do.call(cbind,allData[ind,]))
     Train.ID.index<-flist[-i]
-    TestData<-as.data.frame(do.call(cbind,allData[ind,]))
+    TestData<-as.data.frame(do.call(cbind,allData[-ind,]))
     Test.ID.Index<-flist[i]
     
     folds1<-length(Train.ID.index)
@@ -61,7 +64,9 @@ penint3D<-function(fun,regdat,contVar,flist,lambda=seq(0,5,0.1),int=TRUE,depth.f
     coef.list[[i]]<-predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
     dfresults<-data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred)[1],Rsquared=defaultSummary(obs.pred)[2])
     results[i,]<-dfresults
+    pred<-rbind(pred,obs.pred)
   }
+  results[length(flist)+1,]<-c(NA,RMSE=defaultSummary(pred)[1],Rsquared=defaultSummary(pred)[2])
   coef.mat<-do.call(cbind,coef.list)
   out<-list(measure=results,coef=coef.mat)
   return(out)
