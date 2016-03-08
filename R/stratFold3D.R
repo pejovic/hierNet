@@ -1,16 +1,17 @@
 # Create stratified folds
+# Treba uraditi prosek uzimajuci u obzir sirinu horizonta...
 
 stratfold3d <- function(targetVar,regdat,folds=6,cent=3,preProc=TRUE,seed=666,dimensions=list("2D","3D"),IDs=TRUE,sum=FALSE){
   
   dimensions<-dimensions[[1]]
   if(dimensions=="2D"){
     
-    unique.df<-ddply(regdat,.(ID),here(summarize),target=mean(eval(parse(text=targetVar))),longitude=longitude[1],latitude=latitude[1])
+    unique.df<-ddply(regdat,.(ID),here(summarize),target=weighted.mean(eval(parse(text=targetVar)),hdepth),longitude=longitude[1],latitude=latitude[1])
     km <- kmeans(cbind(unique.df$longitude,unique.df$latitude), centers = cent)
     #plot(unique.df$longitude,unique.df$latitude, col = km$cluster, pch = 20)
     unique.df$km<-as.factor(km$cluster)} else {
       
-      unique.df<-ddply(regdat,.(ID),here(summarize),target=mean(eval(parse(text=targetVar))),longitude=longitude[1],latitude=latitude[1],altitude=min(altitude))
+      unique.df<-ddply(regdat,.(ID),here(summarize),target=weighted.mean(eval(parse(text=targetVar)),hdepth),longitude=longitude[1],latitude=latitude[1],altitude=min(altitude))
       km <- kmeans(cbind(scale(unique.df$longitude),scale(unique.df$latitude),scale(unique.df$altitude)), centers = cent)
       #plot(unique.df$longitude,unique.df$latitude, col = km$cluster, pch = 20)
       unique.df$km<-as.factor(km$cluster)
