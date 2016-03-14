@@ -63,6 +63,7 @@ names(bor.df)
 
 sm2D.lst<-names(bor.df)[c(5:23)]
 
+
 #====================== formulas ===================================================
 fm.H <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
 fm.int.H<- as.formula(paste("As ~",paste(sm2D.lst,"altitude",sep="*", collapse="+"),sep=""))
@@ -90,27 +91,37 @@ targetVar<-"As"
 
 #set.seed(432)
 detach("package:dplyr", unload=TRUE)
-strat<-stratfold3d(targetVar="As",seed=123,regdat=regdat,folds=10,cent=3,dimensions="2D",IDs=FALSE,sum=TRUE)
+strat<-stratfold3d(targetVar="As",seed=123,regdat=regdat,folds=6,cent=3,dimensions="2D",IDs=FALSE,sum=TRUE)
 flist<-strat$folds
 #plotfolds(strat,"pH")
 library(dplyr)
 
-rez<-penint3D(fun=fun,regdat=regdat,hier = FALSE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=FALSE,flist=flist,depth.fun="nspline")
-rez$measure
-summary(rez$measure[1:10,])
+rez<-penint3D(fun=fun,regdat=regdat,hier = FALSE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=FALSE,flist=flist,depth.fun="poly")
+rez
+summary(rez$measure[1:6,])
 
 rezint<-penint3D(fun=fun,regdat=regdat,hier = FALSE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=TRUE,flist=flist,depth.fun="nspline")
-rezint$measure
-summary(rezint$measure[1:10,])
+rezint
+summary(rezint$measure[1:6,])
 
-rezinthier<-penint3D(fun=fun,regdat=regdat,hier=TRUE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=TRUE,flist=flist,depth.fun="nspline")
-rezinthier$measure
-summary(rezinthier$measure[1:10,])
-
-
+rezinthier<-penint3D(fun=fun,regdat=regdat,hier=TRUE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=TRUE,flist=flist,depth.fun="poly")
+rezinthier
+summary(rezinthier$measure[1:6,])
 
 
+stdepths <- c(-.1,-.3,-.5)
+new3D <- sp3D(gridmaps.sm2D, stdepths=stdepths)
+str(new3D)
 
+
+gridmaps.sm2D$As<-rep(1,dim(gridmaps.sm2D@data)[1])
+gridmaps.sm2D$altitude<-rep(-0.05,dim(gridmaps.sm2D@data)[1])
+
+
+modmat <- model.matrix(fun ,gridmaps.sm2D@data)[,-1]
+# removing nzv varaibles 
+nzv <- nearZeroVar(modmat)
+if(sum(nzv)!=0){modmat <- modmat[, -nzv]}else{modmat<-modmat}
 
 
 

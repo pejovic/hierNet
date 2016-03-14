@@ -112,9 +112,9 @@ penint3D<-function(fun,regdat,contVar,flist,hier=TRUE,lambda=seq(0,5,0.1),int=TR
   }else{
     
     
-    allData<-cbind(tvar=regdat[,paste(tvar)],modmat,regdat[,c("ID","longitude","latitude")],X)
+    allData<-cbind(tvar=regdat[,paste(tvar)],modmat,X,regdat[,c("ID","longitude","latitude")])
     #names(allData)<-gsub("\\(altitude,.df.=.4\\)","",names(allData))
-    head(allData)
+    #head(allData)
     
     results<-data.frame(lambda=rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
     coef.list=as.list(rep(NA,length(flist)))
