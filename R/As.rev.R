@@ -3,6 +3,7 @@ library(rgdal)
 library(GSIF)
 library(gdalUtils)
 library(raster)
+library(dplyr)
 library(plyr)
 library(aqp)
 library(psych)
@@ -16,7 +17,6 @@ library(glmnet)
 library(glinternet)
 library(hierNet)
 library(magrittr)
-library(dplyr)
 
 gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
 utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
@@ -30,6 +30,8 @@ bor$hdepth<-bor$Bottom-bor$Top
 bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
 bor <- bor[, - c(7:12,14,15,16,17 )]
 names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","Humus","As","Co","x","y","hdepth","altitude")
+
+bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
 
 ## Predict soil properties of interest:
 bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","Humus","pH","Co","As")]
@@ -61,7 +63,7 @@ names(bor.df)
 bor.df<-bor.df[,-which(names(bor.df) %in% c("DirDif","Dist","AnalyticalHills","LSFactor","RelSlopePosition","VelleyDepth","optional"))]
 str(bor.df)
 
-bor.df<-bor.df[-which(bor.df$ID %in% c(66,129,14,51,69,130,164,165,166)),]
+
 
 #============== Sorting by altitude =================================================
 bor.df<-ddply(bor.df,.(altitude))
@@ -71,47 +73,6 @@ names(bor.df)
 
 sm2D.lst<-names(bor.df)[c(5:23)]
 
-
-########################################
-gridmaps<-gridmaps.sm2D
-
-formulaString<-fm.H
-
-covtrans<-function(formulaString,gridmaps,preProc==TRUE){
-  
-  tvar<-as.character(formulaString)[2]
-  covs<-gsub("[[:space:]]", "", as.character(formulaString)[3])
-  covs<-unlist(strsplit(covs, "+", fixed = TRUE))
-  depth<-covs[length(covs)]
-  covs<-covs[-length(covs)]
-  as.formula(paste("~", paste(covs, collapse="+")))
-  
-  grids<-gridmaps[,covs]
-  
-  factors<-grids@data[,sapply(grids@data,is.factor)]
-  contvar<-grids@data[,sapply(grids@data,is.numeric)]
-  
-  dummy<- dummyVars(as.formula(paste("~", paste(names(factors), collapse="+"))),factors,levelsOnly=TRUE) %>% predict(,newdata=factors)
-  dummy<-dummy[,-nzv(dummy)]
-  
-  cvtrans <- contvar %>% preProcess(, method=(""))
-  
-}
-
-dummy<-dummyVars(as.formula(paste("~", paste(covs, collapse="+"))),data=gridmaps@data,levelsOnly=TRUE)
-dummy.vars<-predict(dummy,gridmaps@data[,c("clc","SoilType")])
-dummy.nzv<-preProcess(dummy.vars,method = c("nzv"))
-dymmy.pred<-predict(dummy.nzv,dummy.vars)
-
-
-
-gridmaps@data<-as.data.frame(predict(dummy,gridmaps@data))
-pp_no_nzv <- preProcess(gridmaps@data,method = c("center", "scale", "nzv"))
-
-pp_no_nzv <- preProcess(gridmaps@data,method = c("center", "scale", "nzv"))
-gridmaps@data<-predict(pp_no_nzv,gridmaps@data)
-str(gridmaps@data)
-pp_no_nzv$method$remove
 
 #====================== formulas ===================================================
 fun <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
@@ -140,22 +101,54 @@ targetVar<-"As"
 
 #set.seed(432)
 detach("package:dplyr", unload=TRUE)
-strat<-stratfold3d(targetVar="As",seed=123,regdat=regdat,folds=10,cent=3,dimensions="2D",IDs=FALSE,sum=TRUE)
+strat<-stratfold3d(targetVar="As",seed=123,regdat=regdat,folds=5,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
 flist<-strat$folds
 #plotfolds(strat,"pH")
 library(dplyr)
 
-rez<-penint3D(fun=fun,regdat=regdat,hier = FALSE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=FALSE,flist=flist,depth.fun="nspline")
+rez<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=FALSE,flist=flist,depth.fun="linear")
 rez
-summary(rez$measure[1:10,])
+summary(rez$measure[1:length(flist),])
 
-rezint<-penint3D(fun=fun,regdat=regdat,hier = FALSE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=TRUE,flist=flist,depth.fun="nspline")
+rezint<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="linear")
 rezint
-summary(rezint$measure[1:10,])
+summary(rezint$measure[1:length(flist),])
 
-rezinthier<-penint3D(fun=fun,regdat=regdat,hier=TRUE,lambda=10^seq(-5,5,length=110),contVar=contVar,int=TRUE,flist=flist,depth.fun="nspline")
+rezinthier<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = TRUE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="linear")
 rezinthier
-summary(rezinthier$measure[1:10,])
+summary(rezinthier$measure[1:length(flist),])
+
+#============= Poly ========================
+rez.poly<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=FALSE,flist=flist,depth.fun="poly")
+rez.poly
+summary(rez.poly$measure[1:length(flist),])
+
+rezint.poly<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="poly")
+rezint.poly
+summary(rezint.poly$measure[1:length(flist),])
+
+rezinthier.poly<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = TRUE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="poly")
+rezinthier.poly
+summary(rezinthier.poly$measure[1:length(flist),])
+
+
+#================= Prediction Final Model ========================================
+
+rez<-penint3Dpred(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE, int=FALSE,flist=flist,depth.fun="poly")
+rez$rezults
+
+
+penint3Dpred
+
+
+
+
+
+
+
+
+
+
 
 
 stdepths <- c(-.1,-.3,-.5)

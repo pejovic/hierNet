@@ -1,7 +1,7 @@
 geo <- bor.geo
 cogrids <- gridmaps.sm2D
 
-penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int=TRUE,depth.fun=list("linear","nspline","poly"),df=4,deg=3,preProc=TRUE){
+penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),deg=3,int=TRUE,depth.fun=list("linear","nspline","poly"),df=4,deg=3,preProc=TRUE){
   
   "%ni%" <- Negate("%in%")
   
