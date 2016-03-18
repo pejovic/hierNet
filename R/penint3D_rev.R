@@ -3,7 +3,10 @@ cogrids <- gridmaps.sm2D
 
 penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int=TRUE,depth.fun=list("linear","nspline","poly"),df=4,deg=3,preProc=TRUE){
   
+  "%ni%" <- Negate("%in%")
+  
   if(hier==TRUE){int=TRUE}
+  
   if(int == FALSE){hier = FALSE}
   
 
@@ -32,13 +35,29 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
   
   ########## Pre-process parameters #########################
   
+  if(depth.fun!="linear"){
+    modmat<-cbind(modmat,poly(modmat$altitude,deg,raw=TRUE,simple=TRUE)[,-1])
+    names(modmat)<-c(names(modmat)[1:(length(names(modmat))-(deg-1))],(paste("poly",c(2:deg),sep="")))
+  }
+
+  
   if(preProc==TRUE){
-    
+
     cont.par <- ov[,c("sampleid",all.vars(fun)[-1])] %>% ddply(.,.(sampleid),function(x) head(x,1)) %>% subset(.,select=-c(sampleid,altitude),drop=FALSE) %>% subset(., select=which(sapply(., is.numeric))) %>% preProcess(.,method=c("center", "scale"))
-    alt.par <-  modmat %>% subset(.,select=altitude) %>% preProcess(.,method=c("center", "scale"))
-    dummy.par <- dummyVars(as.formula(paste("~", paste(all.vars(fun)[-1], collapse="+"))),modmat,levelsOnly=FALSE)
     
-    modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(dummy.par,newdata = .)
+    if(depth.fun =="linear"){ alt.par <-  modmat %>% subset(.,select=altitude) %>% preProcess(.,method=c("center", "scale"))}
+    
+    
+    if(depth.fun!="linear"){ poly.par <- modmat[,-which(names(modmat) %in% c(all.vars(fun)[-1]))] %>% preProcess(.,method=c("center", "scale"))}
+    
+    if(depth.fun!="linear"){ dummy.par <- dummyVars(as.formula(paste("~", paste(names(modmat), collapse="+"))),modmat,levelsOnly=FALSE)} else {
+                             dummy.par <- dummyVars(as.formula(paste("~", paste(names(modmat), collapse="+"))),modmat,levelsOnly=FALSE)
+                           }
+    
+    if(depth.fun!="linear"){ modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(poly.par,newdata = .) %>% predict(dummy.par,newdata = .)} else {
+                             modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(dummy.par,newdata = .)
+                           }
+    
     nzv.par<-preProcess(modmat,method=c("nzv"))
     modmat<-as.data.frame(predict(nzv.par,modmat))
     
@@ -57,27 +76,35 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
   
   if (int==TRUE){
     if (hier!=TRUE){
-      X <- hierNet::compute.interactions.c(as.matrix(modmat),diagonal=FALSE)
-      columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
-      modmat <- cbind(modmat,X[,colnames(X) %in% columns.to.keep])
-    }  else {
-      X <- hierNet::compute.interactions.c(as.matrix(modmat),diagonal=FALSE)
-      columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
-      "%ni%" <- Negate("%in%")
-      X[,colnames(X) %ni% columns.to.keep ] <- 0
-      modmat <- modmat
+          X <- hierNet::compute.interactions.c(as.matrix(modmat),diagonal=FALSE)
       
-    } 
+          if(depth.fun!="linear"){ columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% subset(., select=(names(.) %ni% c(grep("poly", names(.), value=TRUE)))) %>% colnames())} else {
+                                   columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
+                                 }
+      
+          if(depth.fun!="linear"){ modmat <- cbind(modmat,X[,colnames(X) %in% columns.to.keep])} else {
+                                   modmat <- cbind(modmat,X[,colnames(X) %in% columns.to.keep])
+                                 }
+      
+                   }  else { X <- hierNet::compute.interactions.c(as.matrix(modmat),diagonal=FALSE)
+      
+                            if(depth.fun!="linear"){ columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% subset(., select=(names(.) %ni% c(grep("poly", names(.), value=TRUE)))) %>% colnames())} else {
+                                                     columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
+                                                     }
+      
+                            X[,colnames(X) %ni% columns.to.keep ] <- 0
+                            
+                            modmat <- modmat
+      
+                           } 
     
-    } else {
-      modmat <- modmat
-    }
+                   } else {
+      
+                           modmat <- modmat
+    
+             }
     
 
-  if(depth.fun!="linear"){
-    modmat<-cbind(modmat,poly(modmat$altitude,deg,raw=TRUE,simple=TRUE)) %>% subset(.,select=-altitude)
-  }
-    
   regdat<-cbind(As=ov$As,modmat)
   
 
