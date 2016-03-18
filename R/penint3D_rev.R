@@ -10,7 +10,7 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
   if(int == FALSE){hier = FALSE}
   
 
-  ## all columns of interest:
+  #======= all columns of interest:
   methodid <- all.vars(fun)[1]
   seln <- names(cogrids) %in% all.vars(fun)[-1]
   xyn <- attr(cogrids@bbox, "dimnames")[[1]]
@@ -19,7 +19,7 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
     stop("None of the covariates in the 'formulaString' matches the names in the 'covariates' object")
   }
 
-  ## prepare regression matrix:
+  #======== prepare regression matrix:
   ov <- over(x=cogrids, y=geo, method=methodid, var.type = "numeric")
   if(nrow(ov)==0|is.null(ov$observedValue)) {
     warning("The 'over' operations resulted in an empty set. Check 'methodid' column.")
@@ -33,13 +33,14 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
   
   modmat<-ov[,c(all.vars(fun)[-1])]
   
-  ########## Pre-process parameters #########################
+#================== depth.fun query ======================================
   
   if(depth.fun!="linear"){
     modmat<-cbind(modmat,poly(modmat$altitude,deg,raw=TRUE,simple=TRUE)[,-1])
     names(modmat)<-c(names(modmat)[1:(length(names(modmat))-(deg-1))],(paste("poly",c(2:deg),sep="")))
   }
 
+#==========================================================================
   
   if(preProc==TRUE){
 
@@ -62,17 +63,10 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
     modmat<-as.data.frame(predict(nzv.par,modmat))
     
     names(modmat)<-gsub( "\\_|/|\\-|\"|\\s" , "." , names(modmat) )
-    
-    #stdepths <- c(-.1,-.3,-.5)
-    #new3D <- sp3D(gridmaps.sm2D, stdepths=stdepths)
-    #str(new3D)
-    
-    #cogrids3D <- lapply(new3D, function(x) as.data.frame(x)) %>% lapply(.,function(x) predict(cont.par,newdata=x)) %>% lapply(.,function(x) predict(alt.par,newdata=x)) %>% lapply(.,function(x) predict(dummy.par,newdata=x)) %>% lapply(., function(x) as.data.frame(predict(nzv.par,newdata=x))) %>% lapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)})
-    #XX <- cogrids3D[[1]]
-    #XX <- apply(XX, 1, function(x) hierNet::compute.interactions.c(t(as.matrix(x)),diagonal=FALSE)
+
   }
 
-##########################################################################################  
+#====================== Columns to keep and modmat ==================================================== 
   
   if (int==TRUE){
     if (hier!=TRUE){
@@ -104,24 +98,22 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
     
              }
     
-
+#=====================================================================================================
+  
   regdat<-cbind(As=ov$As,modmat)
   
+#=====================================================================================================
 
   if(!hier){
 
     allData<-cbind(regdat,ov[,c("sampleid","longitude","latitude")])
     names(allData)[names(allData) == 'sampleid'] <- 'ID'
     allData$ID <- as.numeric(allData$ID)
-    
-    # Napraviti nested.cv ili prosiriti strat3D za nested. tj. strat 3D moze da daje dve liste i pod liste.
-    # Ili mozda najbolje i ovde ukljuciti strat3D
-    
-    # stratfold3d(targetVar=methodid,seed=123,regdat=cbind(ID=ov$sampleid,regdat,ov[,c("longitude","latitude")]),folds=5,cent=3,dimensions="2D",IDs=TRUE,sum=FALSE)
 
     results <- data.frame(lambda = rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
     coef.list = as.list(rep(NA,length(strat)))
     pred <- data.frame()
+    
     for(i in 1:length(flist)){
       ind <- which(allData$ID %in% do.call(c,flist[-i]))
       TrainData <- allData[ind,]
@@ -129,7 +121,7 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
       TestData <- allData[-ind,]
       Test.ID.Index <- flist[i]
       
-      #=======================================
+      #===========================================================================
       #unique.df<-ddply(allData,.(ID),here(summarize),tv=mean(eval(parse(text=methodid))),longitude=longitude[1],latitude=latitude[1])
 
       k.list <- as.list(rep(NA,length(Train.ID.index)))
@@ -147,33 +139,36 @@ penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int
         foldid[folds.in.list[[j]]]<-j
       }
       
+      #==========================================================================================
+      
       TrainData <- TrainData[,1:(dim(TrainData)[2]-4)] # ovo mora da se menja...ne sme da stoji tri vec moraju da se uklone poslednje tri kolone lepse
       TestData <- TestData[,1:(dim(TestData)[2]-3)]
-      #lambdaGrid <- seq(0,2.5,0.05)#10^seq(10,-2, length =100)
-      lasso.mod=cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
+      #==================== Lasso ===============================================================
       
-      lasso.pred<-predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
-      obs.pred<-data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred))
-      coef.list[[i]]<-predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
-      dfresults<-data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred)[1],Rsquared=defaultSummary(obs.pred)[2])
-      results[i,]<-dfresults
+      lasso.mod <- cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
+      lasso.pred <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
+      obs.pred <- data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred))
+      coef.list[[i]] <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
+      dfresults <- data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred)[1],Rsquared=defaultSummary(obs.pred)[2])
+      results[i,] <- dfresults
       pred<-rbind(pred,obs.pred)
     }
-    results[length(flist)+1,]<-c(NA,RMSE=defaultSummary(pred)[1],Rsquared=defaultSummary(pred)[2])
-    coef.mat<-do.call(cbind,coef.list)
-    out<-list(measure=results,coef=coef.mat)
+    
+    results[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred)[1],Rsquared=defaultSummary(pred)[2])
+    coef.mat <- do.call(cbind,coef.list)
+    out <- list(measure=results,coef=coef.mat)
     return(out)
     
   } else {
     
 
-    allData<-cbind(regdat,X,ov[,c("sampleid","longitude","latitude")])
+    allData <- cbind(regdat,X,ov[,c("sampleid","longitude","latitude")])
     names(allData)[names(allData) == 'sampleid'] <- 'ID'
     allData$ID <- as.numeric(allData$ID)
     
-    results<-data.frame(lambda=rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
-    coef.list=as.list(rep(NA,length(flist)))
-    pred<-data.frame()
+    results <- data.frame(lambda=rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
+    coef.list = as.list(rep(NA,length(flist)))
+    pred <- data.frame()
     
     for(i in 1:length(flist)){
       ind<-which(allData$ID %in% do.call(c,flist[-i])) # izdvajaje indeksa instanci koje pribadaju foldovima za trening
