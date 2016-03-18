@@ -1,6 +1,7 @@
+geo <- bor.geo
+cogrids <- gridmaps.sm2D
 
-
-penint3D<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int=TRUE,depth.fun=list("linear","nspline","poly"),df=4,deg=3,preProc=TRUE){
+penint3Drev<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int=TRUE,depth.fun=list("linear","nspline","poly"),df=4,deg=3,preProc=TRUE){
   
   if(hier==TRUE){int=TRUE}
   if(int == FALSE){hier = FALSE}
@@ -20,131 +21,110 @@ penint3D<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int=TR
   if(nrow(ov)==0|is.null(ov$observedValue)) {
     warning("The 'over' operations resulted in an empty set. Check 'methodid' column.")
   }
+  
   ## geostats only possible with numeric variables:
   ov[,methodid] = as.numeric(ov$observedValue)
   ov$observedValue = NULL
   
-  regdat<-ov[,all.vars(fun)[-1]]
+  ov<-ov[-which(is.na(ov[,methodid])),]
   
+  modmat<-ov[,c(all.vars(fun)[-1])]
   
-#[,-which(names(regdat) == methodid)]
   ########## Pre-process parameters #########################
   
   if(preProc==TRUE){
     
-    cont.par <- preProcess(regdat[,sapply(regdat,is.numeric)],method=c("center", "scale"))
-    regdat <- predict(cont.par,regdat)
+    cont.par <- ov[,c("sampleid",all.vars(fun)[-1])] %>% ddply(.,.(sampleid),function(x) head(x,1)) %>% subset(.,select=-c(sampleid,altitude),drop=FALSE) %>% subset(., select=which(sapply(., is.numeric))) %>% preProcess(.,method=c("center", "scale"))
+    alt.par <-  modmat %>% subset(.,select=altitude) %>% preProcess(.,method=c("center", "scale"))
+    dummy.par <- dummyVars(as.formula(paste("~", paste(all.vars(fun)[-1], collapse="+"))),modmat,levelsOnly=FALSE)
     
-    dummy.par <- dummyVars(as.formula(paste("~", paste(all.vars(fun)[-1], collapse="+"))),regdat,levelsOnly=FALSE)
-    regdat <- predict(dummy.par,newdata=regdat)
+    modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(dummy.par,newdata = .)
+    nzv.par<-preProcess(modmat,method=c("nzv"))
+    modmat<-as.data.frame(predict(nzv.par,modmat))
     
-    nzv.par<-preProcess(regdat,method=c("nzv"))
-    regdat<-as.data.frame(predict(nzv.par,regdat))
-    head(regdat)
+    names(modmat)<-gsub( "\\_|/|\\-|\"|\\s" , "." , names(modmat) )
     
-    names(regdat)<-gsub(" ",".",names(regdat))
+    #stdepths <- c(-.1,-.3,-.5)
+    #new3D <- sp3D(gridmaps.sm2D, stdepths=stdepths)
+    #str(new3D)
     
-
-    
-    #aaa<-lapply(new3D, function(x) as.data.frame(x)) %>% lapply(.,function(x) predict(cont.par,newdata=x)) %>% lapply(.,function(x) predict(dummy.par,newdata=x)) %>% lapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)))
-    #colnames(aaa)<-gsub(" ",".",colnames(aaa))
-    #XX <- hierNet::compute.interactions.c(as.matrix(aaa[[1]]),diagonal=FALSE)
-    }
-  
-  if(depth.fun=="nspline"){fun <- as.formula(paste(methodid, "~" ,paste(c(names(regdat)[-which(names(regdat)=="altitude")],"ns(altitude,df=4)"), collapse="+"),sep=""))
-  } else {if(depth.fun =="poly") {fun <- as.formula(paste(methodid, "~" ,paste(c(names(regdat)[-which(names(regdat)=="altitude")],"poly(altitude,3,raw=TRUE)"), collapse="+"),sep=""))}
-    else {fun <- fun} # OVde treba ubaciti izbacivanje altituda kao main effect ako postoji poly i ns
+    #cogrids3D <- lapply(new3D, function(x) as.data.frame(x)) %>% lapply(.,function(x) predict(cont.par,newdata=x)) %>% lapply(.,function(x) predict(alt.par,newdata=x)) %>% lapply(.,function(x) predict(dummy.par,newdata=x)) %>% lapply(., function(x) as.data.frame(predict(nzv.par,newdata=x))) %>% lapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)})
+    #XX <- cogrids3D[[1]]
+    #XX <- apply(XX, 1, function(x) hierNet::compute.interactions.c(t(as.matrix(x)),diagonal=FALSE)
   }
-  
-  regdat<-cbind(As=ov$As,regdat)
-  modmat <- na.omit(regdat)#model.matrix(fun ,regdat)[,-1]
-  # removing nzv varaibles 
-  #nzv <- nearZeroVar(modmat)
-  #if(sum(nzv)!=0){modmat <- modmat[, -nzv]}else{modmat<-modmat}
-  
-  colnames(modmat)<-gsub(" ",".",colnames(modmat))
-  colnames(modmat)<-gsub("\\(altitude,.df.=.4\\)","",colnames(modmat))
-  colnames(modmat)<-gsub("\\(altitude,.3\\)","",colnames(modmat))
-  
-  X <- hierNet::compute.interactions.c(as.matrix(modmat[,-1]),diagonal=FALSE)
-  columns.to.keep <- (X %>% as.data.frame() %>% select(contains("altitude"))%>% colnames())
-  modmat <- cbind(modmat,X[,colnames(X) %in% columns.to.keep])
-  head(modmat)
-  
-  #modmat<-cbind(modmat,poly(modmat$altitude,3))
-  
-  
-  
-  
-  
-  if(int & !hier){
-    X <- hierNet::compute.interactions.c(as.matrix(modmat),diagonal=FALSE)
 
-        if(depth.fun == "nspline"){columns.to.keep <- (X %>% as.data.frame() %>% select(contains("altitude")) %>% select(-contains("ns"))  %>% colnames())
-            } else {if(depth.fun =="poly") {columns.to.keep <- (X %>% as.data.frame() %>% select(contains("altitude")) %>% select(-contains("poly"))  %>% colnames())}
-                    else {columns.to.keep <- (X %>% as.data.frame() %>% select(contains("altitude"))  %>% colnames())}
-        }
-         
-        if(depth.fun =="nspline"){modmat <- cbind((modmat %>% as.data.frame() %>% select(-altitude) %>% select(-contains("ns")) %>% as.matrix()),X[,colnames(X) %in% columns.to.keep],(modmat %>% as.data.frame() %>% select(contains("ns")) %>% as.matrix()))
-          } else {if(depth.fun =="poly") {modmat <- cbind((modmat %>% as.data.frame() %>% select(-altitude) %>% select(-contains("poly")) %>% as.matrix()),X[,colnames(X) %in% columns.to.keep],(modmat %>% as.data.frame() %>% select(contains("poly")) %>% as.matrix()))}
-                  else {modmat <- cbind(modmat,X[,colnames(X) %in% columns.to.keep])}
-                  }
-  } else { if(hier) {
-
-                    X <- hierNet::compute.interactions.c(modmat,diagonal=FALSE)
-                    
-                    "%ni%" <- Negate("%in%")
-           
-                    if(depth.fun == "nspline"){columns.to.keep <- (X %>% as.data.frame() %>% select(contains("altitude")) %>% select(-contains("ns"))  %>% colnames())
-              
-                                              } else {if(depth.fun == "poly") {columns.to.keep <- (X %>% as.data.frame() %>% select(contains("altitude")) %>% select(-contains("poly"))  %>% colnames())}
-                                                
-                                                else {columns.to.keep <- (X %>% as.data.frame() %>% select(contains("altitude"))  %>% colnames())}
-                                              }
-           
-                    X[,colnames(X) %ni% columns.to.keep ] <- 0
-                    
-
-                    } else {
-                      
-                     
-                      if(depth.fun =="nspline"){modmat <- cbind((modmat %>% as.data.frame() %>% select(-altitude) %>% as.matrix()))
-                      } else {if(depth.fun =="poly") {modmat <- cbind((modmat %>% as.data.frame() %>% select(-altitude) %>% as.matrix()))}
-                        else {modmat <- modmat}
-                      }
-
-                    }
-                    
-              }
-    
-  if(!hier){
-    
-    allData<-cbind(tvar=regdat[,paste(tvar)],modmat,regdat[,c("ID","longitude","latitude")])
-    #names(allData)<-gsub("\\(altitude,.df.=.4\\)","",names(allData))
-    
-    results<-data.frame(lambda=rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
-    coef.list=as.list(rep(NA,length(strat)))
-    pred<-data.frame()
-    for(i in 1:length(flist)){
-      ind<-which(allData$ID %in% do.call(c,flist[-i]))
-      TrainData<-as.data.frame(do.call(cbind,allData[ind,]))
-      Train.ID.index<-flist[-i]
-      TestData<-as.data.frame(do.call(cbind,allData[-ind,]))
-      Test.ID.Index<-flist[i]
+##########################################################################################  
+  
+  if (int==TRUE){
+    if (hier!=TRUE){
+      X <- hierNet::compute.interactions.c(as.matrix(modmat),diagonal=FALSE)
+      columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
+      modmat <- cbind(modmat,X[,colnames(X) %in% columns.to.keep])
+    }  else {
+      X <- hierNet::compute.interactions.c(as.matrix(modmat),diagonal=FALSE)
+      columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
+      "%ni%" <- Negate("%in%")
+      X[,colnames(X) %ni% columns.to.keep ] <- 0
+      modmat <- modmat
       
-      folds1<-length(Train.ID.index)
-      folds.list1<-as.list(rep(NA,folds1))
-      names(folds.list1)<-paste("fold",c(1:folds1),sep = "")
-      foldid<-rep(NA,dim(TrainData)[1])
-      for(j in 1:length(Train.ID.index)){
-        folds.list1[[j]]<-which(TrainData$ID %in% Train.ID.index[[j]])
-        foldid[folds.list1[[j]]]<-j
+    } 
+    
+    } else {
+      modmat <- modmat
+    }
+    
+
+  if(depth.fun!="linear"){
+    modmat<-cbind(modmat,poly(modmat$altitude,deg,raw=TRUE,simple=TRUE)) %>% subset(.,select=-altitude)
+  }
+    
+  regdat<-cbind(As=ov$As,modmat)
+  
+
+  if(!hier){
+
+    allData<-cbind(regdat,ov[,c("sampleid","longitude","latitude")])
+    names(allData)[names(allData) == 'sampleid'] <- 'ID'
+    allData$ID <- as.numeric(allData$ID)
+    
+    # Napraviti nested.cv ili prosiriti strat3D za nested. tj. strat 3D moze da daje dve liste i pod liste.
+    # Ili mozda najbolje i ovde ukljuciti strat3D
+    
+    # stratfold3d(targetVar=methodid,seed=123,regdat=cbind(ID=ov$sampleid,regdat,ov[,c("longitude","latitude")]),folds=5,cent=3,dimensions="2D",IDs=TRUE,sum=FALSE)
+
+    results <- data.frame(lambda = rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
+    coef.list = as.list(rep(NA,length(strat)))
+    pred <- data.frame()
+    for(i in 1:length(flist)){
+      ind <- which(allData$ID %in% do.call(c,flist[-i]))
+      TrainData <- allData[ind,]
+      Train.ID.index <- flist[-i]
+      TestData <- allData[-ind,]
+      Test.ID.Index <- flist[i]
+      
+      #=======================================
+      #unique.df<-ddply(allData,.(ID),here(summarize),tv=mean(eval(parse(text=methodid))),longitude=longitude[1],latitude=latitude[1])
+
+      k.list <- as.list(rep(NA,length(Train.ID.index)))
+      names(k.list)<-paste("k",c(1:length(k.list)),sep="")
+      
+      TrainData$hdepth <- rep(1,dim(TrainData)[1])
+      
+      ff<-stratfold3d(methodid,TrainData, folds=length(flist),sum=TRUE,IDs=TRUE,preProc=FALSE)$folds
+      
+      folds.in.list <- as.list(rep(NA,length(ff)))
+      names(folds.in.list) <- paste("fold",c(1:length(ff)),sep = "")
+      foldid <- rep(NA,dim(TrainData)[1])
+      for(j in 1:length(ff)){
+        folds.in.list[[j]]<-which(TrainData$ID %in% ff[[j]])
+        foldid[folds.in.list[[j]]]<-j
       }
       
-      TrainData<-TrainData[,1:(dim(TrainData)[2]-3)] # ovo mora da se menja...ne sme da stoji tri vec moraju da se uklone poslednje tri kolone lepse
-      TestData<-TestData[,1:(dim(TestData)[2]-3)]
+      TrainData <- TrainData[,1:(dim(TrainData)[2]-4)] # ovo mora da se menja...ne sme da stoji tri vec moraju da se uklone poslednje tri kolone lepse
+      TestData <- TestData[,1:(dim(TestData)[2]-3)]
       #lambdaGrid <- seq(0,2.5,0.05)#10^seq(10,-2, length =100)
       lasso.mod=cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
+      
       lasso.pred<-predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
       obs.pred<-data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred))
       coef.list[[i]]<-predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
@@ -157,12 +137,12 @@ penint3D<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int=TR
     out<-list(measure=results,coef=coef.mat)
     return(out)
     
-  }else{
+  } else {
     
 
-    allData<-cbind(tvar=regdat[,paste(tvar)],modmat,regdat[,c("ID","longitude","latitude")],X)
-    #names(allData)<-gsub("\\(altitude,.df.=.4\\)","",names(allData))
-    head(allData)
+    allData<-cbind(regdat,X,ov[,c("sampleid","longitude","latitude")])
+    names(allData)[names(allData) == 'sampleid'] <- 'ID'
+    allData$ID <- as.numeric(allData$ID)
     
     results<-data.frame(lambda=rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
     coef.list=as.list(rep(NA,length(flist)))
@@ -175,25 +155,34 @@ penint3D<-function(fun, geo, cogrids, flist,hier=TRUE,lambda=seq(0,5,0.1),int=TR
       TestData<-as.data.frame(do.call(cbind,allData[-ind,])) #Izdvajanje test podataka
       Test.ID.Index<-flist[i] # Izdvajanje dela liste foldova sa test podacima
       
-      folds1<-length(Train.ID.index) # duzina liste foldova sa trening podacima (tj. koliko foldova ide u tu listu)
-      folds.list1<-as.list(rep(NA,folds1)) # kreiranje prazne liste iste duzine
-      names(folds.list1)<-paste("fold",c(1:folds1),sep = "") # Nazivanje svakog clana liste po foldu...
-      foldid<-rep(NA,dim(TrainData)[1]) # kreiranje atributa koji ce nositi informaciju kom foldu pripada podatak 
+      #=======================================
+      #unique.df<-ddply(allData,.(ID),here(summarize),tv=mean(eval(parse(text=methodid))),longitude=longitude[1],latitude=latitude[1])
       
-      for(j in 1:length(Train.ID.index)){
-        folds.list1[[j]]<-which(TrainData$ID %in% Train.ID.index[[j]])
-        foldid[folds.list1[[j]]]<-j
+      k.list <- as.list(rep(NA,length(Train.ID.index)))
+      names(k.list)<-paste("k",c(1:length(k.list)),sep="")
+      
+      TrainData$hdepth <- rep(1,dim(TrainData)[1])
+      
+      ff<-stratfold3d(methodid,TrainData, folds=length(flist),sum=TRUE,IDs=TRUE,preProc=FALSE)$folds
+      
+      folds.in.list <- as.list(rep(NA,length(ff)))
+      names(folds.in.list) <- paste("fold",c(1:length(ff)),sep = "")
+      foldid <- rep(NA,dim(TrainData)[1])
+      for(j in 1:length(ff)){
+        folds.in.list[[j]]<-which(TrainData$ID %in% ff[[j]])
+        foldid[folds.in.list[[j]]]<-j
       }
       
+
       trainx <- as.matrix(TrainData[,colnames(modmat)]) 
       testx <- as.matrix(TestData[,colnames(modmat)])
       trainzz <- as.matrix(TrainData[,colnames(X)])
       testzz <- as.matrix(TestData[,colnames(X)])
-      trainy <- (TrainData[,"tvar"])
-      testy <- (TestData[,"tvar"])
+      trainy <- (TrainData[,methodid])
+      testy <- (TestData[,methodid])
       
       fit = hierNet.path(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,trace=0)
-      fitcv = hierNet.cv(fit, trainx, trainy, folds=folds.list1, trace=0)
+      fitcv = hierNet.cv(fit, trainx, trainy, folds=folds.in.list, trace=0)
       fit.def <- hierNet(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,lam=fit$lamlist[which(fitcv$lamhat==fit$lamlist)])
       fit.pred <- predict(fit.def,newx=testx,newzz = testzz)
       
