@@ -118,8 +118,8 @@ penint3Drev<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,f
     
 #=====================================================================================================
   
-  regmat.def <- cbind(As=regmat$As,modmat)
-  
+  regmat.def <- cbind(regmat[, tv],modmat)
+  names(regmat.def) <- c(tv, names(regmat.def[-1]))
 #=====================================================================================================
 
   if(!hier){
