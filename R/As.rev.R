@@ -106,37 +106,57 @@ flist<-strat$folds
 #plotfolds(strat,"pH")
 library(dplyr)
 
-rez<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=FALSE,flist=flist,depth.fun="linear")
+rez<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 rez
-summary(rez$measure[1:length(flist),])
+summary(rez$measure[1:5,])
 
-rezint<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="linear")
+rezint<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
 rezint
-summary(rezint$measure[1:length(flist),])
+summary(rezint$measure[1:5,])
 
-rezinthier<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = TRUE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="linear")
+rezinthier<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
 rezinthier
-summary(rezinthier$measure[1:length(flist),])
+summary(rezinthier$measure[1:5,])
 
 #============= Poly ========================
-rez.poly<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=FALSE,flist=flist,depth.fun="poly")
+rez.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
 rez.poly
-summary(rez.poly$measure[1:length(flist),])
+summary(rez.poly$measure[1:5,])
 
-rezint.poly<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="poly")
+rezint.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
 rezint.poly
-summary(rezint.poly$measure[1:length(flist),])
+summary(rezint.poly$measure[1:5,])
 
-rezinthier.poly<-penint3Drev(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = TRUE,lambda=10^seq(-5,5,length=110),int=TRUE,flist=flist,depth.fun="poly")
+rezinthier.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="poly")
 rezinthier.poly
-summary(rezinthier.poly$measure[1:length(flist),])
+summary(rezinthier.poly$measure[1:5,])
 
 
 #================= Prediction Final Model ========================================
 
-rez<-penint3Dpred(fun=fun,geo=bor.geo,cogrids = gridmaps.sm2D,hier = FALSE, int=FALSE,flist=flist,depth.fun="poly")
-rez$rezults
+rez.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+rez.pred.l$cv.par
+rez.pred.l$results
 
+rezint.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+rezint.pred.l$cv.par
+rez.l.pred.l$results
+
+rezinthier.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+rezinthier.pred.l$cv.par
+rezinthier.pred.l$results
+
+rez.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+rez.pred.l$cv.par
+rez.pred.l$results
+
+rezint.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+rezint.pred.l$cv.par
+rez.l.pred.l$results
+
+rezinthier.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+rezinthier.pred.p$cv.par
+rezinthier.pred.p$results
 
 penint3Dpred
 
