@@ -1,5 +1,5 @@
-geo <- bor.geo
-cogrids <- gridmaps.sm2D
+#geo <- bor.geo
+#cogrids <- gridmaps.sm2D
 
 penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),preProc=TRUE,seed=321){
   
@@ -58,23 +58,24 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
     
     cont.par <- regmat[,c("ID",all.vars(fun)[-1])] %>% ddply(.,.(ID),function(x) head(x,1)) %>% subset(.,select=-c(ID,altitude),drop=FALSE) %>% subset(., select=which(sapply(., is.numeric))) %>% preProcess(.,method=c("center", "scale"))
     
-    if(depth.fun =="linear"){ alt.par <-  modmat %>% subset(.,select=altitude) %>% preProcess(.,method=c("center", "scale"))}
-    
+                           { alt.par <-  modmat %>% subset(.,select=altitude) %>% preProcess(.,method=c("center", "scale"))}
+                            #if(depth.fun =="linear")
     
     if(depth.fun!="linear"){ poly.par <- modmat[,-which(names(modmat) %in% c(all.vars(fun)[-1]))] %>% preProcess(.,method=c("center", "scale"))}
     
-    #if(depth.fun!="linear"){ dummy.par <- dummyVars(as.formula(paste("~", paste(names(modmat), collapse="+"))),modmat,levelsOnly=FALSE,fullRank = TRUE)} else {
-    #dummy.par <- dummyVars(as.formula(paste("~", paste(names(modmat), collapse="+"))),modmat,levelsOnly=FALSE,fullRank = TRUE)
-    #}
+    if(depth.fun!="linear"){ dummy.par <- dummyVars(as.formula(paste("~", paste(names(modmat), collapse="+"))),modmat,levelsOnly=FALSE,fullRank = TRUE)} else {
+                             dummy.par <- dummyVars(as.formula(paste("~", paste(names(modmat), collapse="+"))),modmat,levelsOnly=FALSE,fullRank = TRUE)
+    }
+    
     #%>% predict(alt.par,newdata = .) %>% predict(poly.par,newdata = .)
-    if(depth.fun!="linear"){ mm <- predict(cont.par,newdata = modmat) ; modmat <- model.matrix(as.formula(paste("~", paste(c(colnames(mm)), collapse="+"))),mm)[,-1]} else {
-      mm <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) ; modmat <- model.matrix(as.formula(paste("~", paste(c(colnames(mm)), collapse="+"))),mm)[,-1]
-    } 
+    #if(depth.fun!="linear"){ mm <- predict(cont.par,newdata = modmat) ; modmat <- model.matrix(as.formula(paste("~", paste(c(colnames(mm)), collapse="+"))),mm)[,-1]} else {
+      #mm <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) ; modmat <- model.matrix(as.formula(paste("~", paste(c(colnames(mm)), collapse="+"))),mm)[,-1]
+    #} 
     
     
-    #if(depth.fun!="linear"){ modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(poly.par,newdata = .) %>% predict(dummy.par,newdata = .)} else {
-    #modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(dummy.par,newdata = .)
-    #}
+    if(depth.fun!="linear"){ modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(poly.par,newdata = .) %>% predict(dummy.par,newdata = .)} else {
+                             modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(dummy.par,newdata = .)
+    }
     
     nzv.par<-preProcess(modmat,method=c("nzv"))
     modmat<-as.data.frame(predict(nzv.par,modmat))
@@ -117,7 +118,8 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
   
   #=====================================================================================================
   
-  regmat.def <- cbind(As=regmat$As,modmat)
+  regmat.def <- cbind(regmat[, tv],modmat)
+  names(regmat.def) <- c(tv, names(regmat.def[-1]))
   
   #=====================================================================================================
   
@@ -208,12 +210,12 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
     
     #==========================================================================================
     
-    allData <- allData[,1:(dim(allData)[2]-4)] # ovo mora da se menja...ne sme da stoji tri vec moraju da se uklone poslednje tri kolone lepse
+    allyxzz <- allData[,1:(dim(allData)[2]-4)] # ovo mora da se menja...ne sme da stoji tri vec moraju da se uklone poslednje tri kolone lepse
     
       
-      allx <- as.matrix(allData[,colnames(modmat)]) 
-      allzz <- as.matrix(allData[,colnames(X)])
-      ally <- (allData[,methodid])
+      allx <- as.matrix(allyxzz[,colnames(modmat)]) 
+      allzz <- as.matrix(allyxzz[,colnames(X)])
+      ally <- (allyxzz[,tv])
 
       fit = hierNet.path(allx,ally, zz = allzz,diagonal=FALSE,strong=TRUE,trace=0)
       fitcv = hierNet.cv(fit, allx, ally, folds=folds.in.list, trace=0)
@@ -234,14 +236,17 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
       coef.list.cv = as.list(rep(NA,length(strat)))
       pred.cv <- data.frame()
       
-      
+
       for(i in 1:length(flist)){
         ind<-which(allData$ID %in% do.call(c,flist[-i])) # izdvajaje indeksa instanci koje pribadaju foldovima za trening
         TrainData<-as.data.frame(do.call(cbind,allData[ind,])) # izdvajanje trening podacima
         Train.ID.index<-flist[-i] # Izdvajanje dela liste foldova sa  trening podacima
         TestData<-as.data.frame(do.call(cbind,allData[-ind,])) #Izdvajanje test podataka
         Test.ID.Index<-flist[i] # Izdvajanje dela liste foldova sa test podacima
-        
+
+        TrainData <- TrainData[,1:(dim(TrainData)[2]-4)] # ovo mora da se menja...ne sme da stoji tri vec moraju da se uklone poslednje tri kolone lepse
+        TestData <- TestData[,1:(dim(TestData)[2]-4)]
+
         trainx <- as.matrix(TrainData[,colnames(modmat)]) 
         testx <- as.matrix(TestData[,colnames(modmat)])
         trainzz <- as.matrix(TrainData[,colnames(X)])
@@ -261,9 +266,9 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
       
       }
       #,dummy.par=dummy.par
-      if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par,alt.par=alt.par, nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred))
+      if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par,alt.par=alt.par, nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred))
           } else {
-                    regres<-list(results=results.cv, preProc=list(cont.par=cont.par, nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred)) 
+                    regres<-list(results=results.cv, preProc=list(cont.par=cont.par, nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred)) 
                   }
       
        return(regres)
