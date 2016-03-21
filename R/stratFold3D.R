@@ -1,7 +1,7 @@
 # Create stratified folds
 # Treba uraditi prosek uzimajuci u obzir sirinu horizonta...
 
-stratfold3d <- function(targetVar,regdat,folds=6,cent=3,preProc=TRUE,seed=666,dimensions=list("2D","3D"),IDs=TRUE,sum=FALSE){
+stratfold3d <- function(targetVar,regdat,folds=5,cent=3,preProc=TRUE,seed=666,dimensions=list("2D","3D"),IDs=TRUE,sum=FALSE){
   
   dimensions<-dimensions[[1]]
   if(dimensions=="2D"){
