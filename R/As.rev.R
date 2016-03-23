@@ -3,7 +3,7 @@ library(rgdal)
 library(GSIF)
 library(gdalUtils)
 library(raster)
-library(dplyr)
+
 library(plyr)
 library(aqp)
 library(psych)
@@ -17,6 +17,8 @@ library(glmnet)
 library(glinternet)
 library(hierNet)
 library(magrittr)
+library(doParallel)
+library(foreach)
 
 gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
 utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
@@ -87,11 +89,12 @@ fm.poly.H <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude","poly(altitude
 
 #================== test for stratfold3d and penint3D ============================================
 source(paste(getwd(),"R","stratFold3D.R",sep="/"))
-source(paste(getwd(),"R","penint3D.R",sep="/"))
+source(paste(getwd(),"R","penint3D_def.R",sep="/"))
 source(paste(getwd(),"R","plotfolds.R",sep="/"))
+source(paste(getwd(),"R","penint3Dpred.R",sep="/"))
 
 
-fun<-as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
+fun<-as.formula(paste("Humus ~", paste(c(head(sm2D.lst,(length(sm2D.lst)-2)),"altitude"), collapse="+")))
 regdat<-bor.df
 contVar<-sm2D.lst[-which(sm2D.lst %in% c("clc","SoilType"))]
 targetVar<-"As"
@@ -109,69 +112,83 @@ library(dplyr)
 rez<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 rez
 summary(rez$measure[1:5,])
+summary(Humus.result.lst$rez$measure[1:5,])
 
 rezint<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
 rezint
 summary(rezint$measure[1:5,])
+summary(Humus.result.lst$rezint$measure[1:5,])
 
 rezinthier<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
 rezinthier
 summary(rezinthier$measure[1:5,])
+summary(Humus.result.lst$rezinthier$measure[1:5,])
 
 #============= Poly ========================
 rez.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
 rez.poly
 summary(rez.poly$measure[1:5,])
+summary(Humus.result.lst$rez.poly$measure[1:5,])
 
 rezint.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
 rezint.poly
 summary(rezint.poly$measure[1:5,])
+summary(Humus.result.lst$rezint.poly$measure[1:5,])
 
-rezinthier.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="poly")
+rezinthier.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
 rezinthier.poly
 summary(rezinthier.poly$measure[1:5,])
 
 
 #================= Prediction Final Model ========================================
 
-rez.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+rez.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 rez.pred.l$cv.par
 rez.pred.l$results
+
 
 rezint.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
 rezint.pred.l$cv.par
-rez.l.pred.l$results
+rezint.pred.l$results
+Humus.result.lst$rezint.pred.l$results
 
-rezinthier.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+rezinthier.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="linear")
 rezinthier.pred.l$cv.par
 rezinthier.pred.l$results
 
-rez.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
-rez.pred.l$cv.par
-rez.pred.l$results
+rez.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
+rez.pred.p$cv.par
+rez.pred.p$results
 
-rezint.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
-rezint.pred.l$cv.par
-rez.l.pred.l$results
+rezint.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+rezint.pred.p$cv.par
+rezint.pred.p$results
 
-rezinthier.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+rezinthier.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
 rezinthier.pred.p$cv.par
 rezinthier.pred.p$results
 
-penint3Dpred
+Humus.result.lst<-list(rez=rez,rezint=rezint,rezinthier=rezinthier, rez.poly=rez.poly, rezint.poly=rezint.poly, rezinthier.poly=rezinthier.poly, rez.pred.l=rez.pred.l,rez.pred.p=rez.pred.p,rezint.pred.l=rezint.pred.l,rezint.pred.p=rezint.pred.p,rezinthier.pred.l=rezinthier.pred.l,rezinthier.pred.p=rezinthier.pred.p)
+
+str(Humus.result.lst)
+names(Humus.result.lst) # fali rezinthier.pred.p jer je javljao gresku kod kreiranja "results" dimenzije nisu dobre...
+
+save(Humus.result.lst,file="HumusResults.Rda")
+
+load("HumusResults.Rda")
+
+
+
+#geo <- bor.geo
+cogrids <- gridmaps.sm2D
+profs<-bor.profs
+int=TRUE; hier=FALSE; depth.fun="linear"; lambda=seq(0,5,0.1); deg=3; preProc=TRUE; cent=3; fold=5; seed=321
 
 
 
 
 
-
-
-
-
-
-
-
-stdepths <- c(-.1,-.3,-.5)
+depths <- c(-.1,-.3,-.5)
 new3D <- sp3D(gridmaps.sm2D, stdepths=stdepths)
 str(new3D)
 

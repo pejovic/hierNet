@@ -1,7 +1,3 @@
-#geo <- bor.geo
-cogrids <- gridmaps.sm2D
-profs<-bor.profs
-int=TRUE; hier=TRUE; depth.fun="linear"; lambda=seq(0,5,0.1); deg=3; preProc=TRUE; cent=3; fold=5
 
 penint3Drev<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),preProc=TRUE,seed=321){
   

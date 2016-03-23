@@ -1,4 +1,6 @@
 
+gridfun<-as.formula(paste("~", paste(c(sm2D.lst,"altitude"), collapse="+")))
+
 spc<-function(grids,fun,contVar,preProc==TRUE){
   
   formulaString<-fun
@@ -92,3 +94,19 @@ if(silent==FALSE){
 pcs <- new("SpatialComponents", predicted = obj, pca = pcs[-which(names(pcs)=="x")])
 return(pcs)
 }
+
+
+
+
+
+
+
+stdepths <- c(-.1,-.3,-.5)
+new3D <- sp3D(gridmaps.sm2D, stdepths=stdepths)
+str(new3D)
+
+grid1<-as.data.frame(new3D[[1]])
+
+cogrids3D <- lapply(new3D, function(x) as.data.frame(x)) %>% lapply(.,function(x) predict(cont.par,newdata=x)) %>% lapply(.,function(x) predict(alt.par,newdata=x)) %>% lapply(.,function(x) predict(dummy.par,newdata=x)) %>% lapply(., function(x) as.data.frame(predict(nzv.par,newdata=x))) %>% lapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)})
+XX <- cogrids3D[[1]]
+XX <- apply(XX, 1, function(x) hierNet::compute.interactions.c(t(as.matrix(x)),diagonal=FALSE)
