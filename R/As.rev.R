@@ -179,36 +179,51 @@ load("HumusResults.Rda")
 
 
 
-#geo <- bor.geo
+#=================== predint3D ====================================================
+
+fun<-as.formula(paste("Humus ~", paste(c(head(sm2D.lst,(length(sm2D.lst)-2)),"altitude"), collapse="+")))
 cogrids <- gridmaps.sm2D
 profs<-bor.profs
-int=TRUE; hier=FALSE; depth.fun="linear"; lambda=seq(0,5,0.1); deg=3; preProc=TRUE; cent=3; fold=5; seed=321
+int=TRUE; hier=FALSE; depth.fun="poly";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
+source(paste(getwd(),"R","stratFold3D.R",sep="/"))
+
+
+#predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),depths=c(-.1,-.3),chunk=20000,preProc=TRUE,cores=2,seed=321,l=c(370000:450000)){
+
+predint3D.pred<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depth.fun="linear",cores=8)
+
+str(predint3D.pred)
+
+(predint3D.pred$results)
+
+pp<-raster(predint3D.pred[[1]],"pred")
+
+plot(pp)
+
+spplot(pp,"pred")
 
 
 
+#================== Visualization ===================================
+p = get("cellsize", envir = GSIF.opts)[2]
+s = c(-.1,-.3)#get("stdepths", envir = GSIF.opts)
 
+sd.ll <- sapply(1:length(predint3D.pred), FUN=function(x){make.3Dgrid(predint3D.pred[[x]][c("pred")], pixelsize=p, stdepths=s[x])})
 
-depths <- c(-.1,-.3,-.5)
-new3D <- sp3D(gridmaps.sm2D, stdepths=stdepths)
-str(new3D)
+sd.bb<-raster(sd.ll[[1]])
+plot(sd.bb)
 
+spplot(sd.ll[[1]],"pred")
 
-gridmaps.sm2D$As<-rep(1,dim(gridmaps.sm2D@data)[1])
-gridmaps.sm2D$altitude<-rep(-0.05,dim(gridmaps.sm2D@data)[1])
+z0 = mean(gridmaps.sm2D$DEM, na.rm=TRUE)
 
-
-modmat <- model.matrix(fun ,gridmaps.sm2D@data)[,-1]
-# removing nzv varaibles 
-nzv <- nearZeroVar(modmat)
-if(sum(nzv)!=0){modmat <- modmat[, -nzv]}else{modmat<-modmat}
-
-
-
-
-
-
-
-
-
+for(j in 1:length(sd.ll)){
+  kml(slot(SNDMHT.gsm, paste("sd", j, sep="")),
+              folder.name = paste("eberg_sd", j, sep=""),
+              file = paste("SNDMHT_sd", j, ".kml", sep=""),
+              colour = M, z.lim=c(10,85),
+              raster_name = paste("SNDMHT_sd", j, ".png", sep=""),
+              altitude = z0+5000+(s[j]*2500))
+   }
 
 
