@@ -181,22 +181,25 @@ load("HumusResults.Rda")
 
 #=================== predint3D ====================================================
 
-fun<-as.formula(paste("Humus ~", paste(c(head(sm2D.lst,(length(sm2D.lst)-2)),"altitude"), collapse="+")))
+fun<-as.formula(paste("As ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
 cogrids <- gridmaps.sm2D
 profs<-bor.profs
 int=TRUE; hier=FALSE; depth.fun="poly";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
 source(paste(getwd(),"R","stratFold3D.R",sep="/"))
 
 
-#predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),depths=c(-.1,-.3),chunk=20000,preProc=TRUE,cores=2,seed=321,l=c(370000:450000)){
+#predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),depths=c(-.1,-.3),chunk=20000,preProc=TRUE,cores=2,seed=321,l=c(1:621426)){
+source(paste(getwd(),"R","predint3D.R",sep="/"))
+predint3D.As.g<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = TRUE, int=TRUE, depth.fun="linear",cores=8)
 
-predint3D.pred<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depth.fun="linear",cores=8)
+str(predint3D.As.g)
+names(predint3D.As.g)
 
-str(predint3D.pred)
+summary(predint3D.As.g$prediction[[1]]$pred)
 
-(predint3D.pred$results)
+(predint3D.As.g$summary$results)
 
-pp<-raster(predint3D.pred[[1]],"pred")
+pp<-raster(predint3D.As.g[[2]],"pred")
 
 plot(pp)
 
