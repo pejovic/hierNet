@@ -1,6 +1,5 @@
 
-
-penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),preProc=TRUE,seed=321){
+predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),depths=c(-.1,-.3),chunk=20000,preProc=TRUE,cores=2,seed=321,l=c(370000:450000)){
   
   "%ni%" <- Negate("%in%")
   
@@ -148,6 +147,7 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
     
     lasso.mod <- cv.glmnet(as.matrix(allData[,-1]),allData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
     lasso.pred <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(allData[,-1]))
+    lasso.pred <- pmax(lasso.pred,0.5)
     cvm <- sqrt(lasso.mod$cvm[which(lasso.mod$lambda==lasso.mod$lambda.min)])
     obs.pred <- data.frame(obs=allData[,1],pred=as.numeric(lasso.pred))
     coef.list <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
@@ -174,6 +174,7 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
       
       #lasso.mod <- cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
       lasso.pred.cv <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
+      lasso.pred.cv <- pmax(lasso.pred.cv,0.5)
       obs.pred.cv <- data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred.cv))
       coef.list.cv[[i]] <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
       dfresults.cv <- data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred.cv)[1],Rsquared=defaultSummary(obs.pred.cv)[2])
@@ -184,11 +185,12 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
     results.cv[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred.cv)[1],Rsquared=defaultSummary(pred.cv)[2])
     
     #,dummy.par=dummy.par
-    if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred))
+    
+    if(depth.fun =="linear"){ regres <- list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred))
     } else {
       regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred)) 
     }
-    return(regres)
+
     
   } else {
     
@@ -220,6 +222,7 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
     fitcv = hierNet.cv(fit, allx, ally, folds=folds.in.list, trace=0)
     fit.def <- hierNet(allx,ally, zz = allzz,diagonal=FALSE,strong=TRUE,lam=fit$lamlist[which(fitcv$lamhat==fit$lamlist)])
     fit.pred <- predict(fit.def,newx=allx,newzz = allzz)
+    fit.pred <- pmax(fit.pred,0.5)
     
     ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(colnames(modmat))])
     me<-fit$bp[,which(fitcv$lamhat==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat==fit$lamlist), drop = F]
@@ -254,6 +257,7 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
       testy <- (TestData[,tv])
       
       fit.pred.cv <- predict(fit.def,newx=testx,newzz = testzz)
+      fit.pred.cv <- pmax(fit.pred.cv,0.5)
       obs.pred.cv <- data.frame(obs=testy,pred=fit.pred.cv)
       dfresults.cv<-data.frame(lambda=fitcv$lamhat,RMSE=defaultSummary(obs.pred.cv)[1],Rsquared=defaultSummary(obs.pred.cv)[2])
       results.cv[i,]<-dfresults.cv
@@ -263,17 +267,19 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
     
     results.cv[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred.cv)[1],Rsquared=defaultSummary(pred.cv)[2])
     
-  }
-  #,dummy.par=dummy.par
-  if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred))
-  } else {
-    regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred)) 
-  }
-  
-  if(pred=TRUE){
+    #,dummy.par=dummy.par
+    if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred))
+    } else {
+      regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred)) 
+    }
     
-    depths <- c(-.1,-.3,-.5)
-    new3D <- sp3D(gridmaps.sm2D, stdepths=depths)
+    }
+    
+  if(pred==TRUE){
+    
+    #cogrids<-gridmaps.sm2D[400001:450000,]
+    depths <- depths # c(-.1,-.3)
+    new3D <- sp3D(cogrids[l,], stdepths=depths)
     cores=1
     XX <- mclapply(new3D, function(x) as.data.frame(x), mc.cores=cores)
     if(depth.fun != "linear") { XX <- lapply(XX, function(x) x <- cbind(x,poly(x$altitude,deg,raw=TRUE,simple=TRUE)[,-1]))
@@ -285,106 +291,69 @@ penint3Dpred<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,
     } else { XX <-  mclapply(XX, function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
     }
     
-    chunk <- 20000 #chunk
-    n <- nrow(XX[[1]])
-    r  <- rep(1:ceiling(n/chunk),each=chunk)[1:n]
-    ZZ <- lapply(XX, function(x) split(x,r))
+    #==================== Compute Interactions =========================
     
-    cores<-detectCores()
-    registerDoParallel(cores=cores)
-    
-    #ZZ <- lapply(ZZ, function(x) foreach(j=x,.combine="rbind") %dopar% {hierNet::compute.interactions.c(as.matrix(j),diagonal = FALSE)})
-    
-    for(i in 1:length(ZZ)){ 
-      ZZ[[i]] <- foreach(j=ZZ[[i]],.combine="rbind") %dopar% {hierNet::compute.interactions.c(as.matrix(j),diagonal = FALSE)}
+    if (int==TRUE){
+      chunk <- chunk #20000 #chunk
+      n <- nrow(XX[[1]])
+      r  <- rep(1:ceiling(n/chunk),each=chunk)[1:n]
+      ZZ <- lapply(XX, function(x) split(x,r))
+      
+      #cores<-detectCores()
+      registerDoParallel(cores=cores)
+      
+      for(i in 1:length(ZZ)){ 
+        ZZ[[i]] <- foreach(j=ZZ[[i]],.combine="rbind") %dopar% {hierNet::compute.interactions.c(as.matrix(j),diagonal = FALSE)}
+      }
     }
+ 
+    #====================================================================
+    #ZZ<-zz
+    #zz <- ZZ #list(ZZ[[1]][[1]]) rm(zz)
+    #a<-XX #rm(a)
+    #======================= Columns to keep ============================
     
-    
-    ################### Columns to keep ################################
     if (int==TRUE){
       if (hier!=TRUE){
-        
+
         for( i in 1:length(ZZ)) {
-          ZZ[[i]] <- subset(ZZ[[i]], colnames(ZZ[[i]] %in% columns.to.keep))
+          ZZ[[i]] <- subset(ZZ[[i]][,colnames(ZZ[[i]]) %in% columns.to.keep])
           XX[[i]] <- cbind(XX[[i]],ZZ[[i]])
         }
       
-        }
-      
-        
+
       }  else { 
      
-              for( i in length(ZZ)){
-                        ZZ[[i]][,colnames(X) %ni% columns.to.keep ] <- 0
+              for( i in 1:length(ZZ)){
+                        ZZ[[i]][,colnames(ZZ[[i]]) %ni% columns.to.keep ] <- 0
                         }
               } 
-
-    #################################################################
+      }
+    #======================================================================
     
-    d<-lapply(d, function(x) x[1:5])
+    if(!hier){
+        grid.pred <- lapply(XX, function(x) predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(x)))
     
-    save.image("foreachInput.RData")
-    load("foreachInput.RData")
+        for(i in 1:length(new3D)){
+          new3D[[i]]$pred <- as.numeric(lapply(XX, function(x) predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(x)))[[i]])
+          new3D[[i]]$pred <- pmax(new3D[[i]]$pred,0.5)
+          }
     
-    
-    
-    a <- foreach(j=d[[1]],.combine="rbind",package=c("hierNet")) %dopar% {hierNet::compute.interactions.c(as.matrix(j),diagonal = FALSE)}
-    
-    
-    #d1 <- foreach(i=1:length(d)) %:% {
-      #foreach(j=d[[i]],.combine="rbind",package=c("hierNet")) %dopar% {hierNet::compute.interactions.c(as.matrix(j),diagonal = FALSE)}
-    #}
-    
-    d1 <- foreach(i=d[[1]],.combine="rbind") %do% {
-      foreach(j=i,package=c("hierNet"),.combine="rbind") %dopar% {hierNet::compute.interactions.c(as.matrix(j),diagonal = FALSE)}
-    }
+    } else {
+      
+      for( i in 1:length(XX)){
         
-    
-    cix<- foreach(i = seq(0,dim(XXX)[1],1000)[-1]) %dopar% { hierNet::compute.interactions.c((XXX[seq(i-999,i,1),]),diagonal = FALSE)}
-    rm(cix)
-    
-    
-    
-    
-    
-    
-    XX <- cogrids3D[[1]]
-    XXX <- as.matrix(XX[1:600000,])
-    cix <- hierNet::compute.interactions.c(XXX,diagonal=FALSE)
-    
-    cix <- apply(XXX, 1, function(x) hierNet::compute.interactions.c((as.matrix(x)),diagonal=FALSE))
-    
+        allXX <- as.matrix(XX[[i]][,colnames(modmat)]) 
+        allZZ <- as.matrix(ZZ[[i]][,colnames(X)])
+        
+        new3D[[i]]$pred <- as.numeric(predict(fit.def,newx=allXX,newzz = allZZ)[[i]])
+        new3D[[i]]$pred <- pmax(new3D[[i]]$pred,0.5)
+        }
+
+      }
+      
   }
   
-  ci<-function(x,diagonal=FALSE){hierNet::compute.interactions.c(x);return(x)}
-  
-  
-  chunk <- 10000
-  n <- nrow(XX)
-  r  <- rep(1:ceiling(n/chunk),each=chunk)[1:n]
-  d <- split(XX,r)
-  d1<-d[1:2]
-  
-  registerDoParallel(cores=8)
-  cix<- foreach(i = seq(0,dim(XXX)[1],1000)[-1]) %dopar% { hierNet::compute.interactions.c((XXX[seq(i-999,i,1),]),diagonal = FALSE)}
-  rm(cix)
-  
-  registerDoParallel(cores=8)
-  cix<- foreach(i = d1, .combine="rbind" ) %dopar% { hierNet::compute.interactions.c(as.matrix(i),diagonal = FALSE)}
-  rm(cix)
-  
-  
-  #probati da se podeli sa by pa sa tri, nesto kao for(i in seq(from=1, to=78, by=2)){
-  head(cix)
-  
-  ab<- hierNet::compute.interactions.c(as.matrix(XXX[c(1001:2000),]),diagonal = FALSE)
-    
-  return(regres)
-  
-  seq(0,dim(XX)[1],length.out= 100)
-  
-  rep(1000, round(dim(XX)[1]/1000))
-  
-  
+  if(pred!=TRUE){return(regres)} else {return(new3D)}
   
 }
