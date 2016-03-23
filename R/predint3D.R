@@ -279,7 +279,7 @@ predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1
     
     #cogrids<-gridmaps.sm2D[400001:450000,]
     depths <- depths # c(-.1,-.3)
-    new3D <- sp3D(cogrids[l,], stdepths=depths)
+    new3D <- sp3D(cogrids, stdepths=depths)
     cores=1
     XX <- mclapply(new3D, function(x) as.data.frame(x), mc.cores=cores)
     if(depth.fun != "linear") { XX <- lapply(XX, function(x) x <- cbind(x,poly(x$altitude,deg,raw=TRUE,simple=TRUE)[,-1]))
@@ -354,6 +354,7 @@ predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1
       
   }
   
-  if(pred!=TRUE){return(regres)} else {return(new3D)}
+  return(list(prediction=new3D,summary=regres))
+  #if(pred!=TRUE){return(regres)} else {return(new3D)}
   
 }
