@@ -346,7 +346,7 @@ predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1
         allXX <- as.matrix(XX[[i]][,colnames(modmat)]) 
         allZZ <- as.matrix(ZZ[[i]][,colnames(X)])
         
-        new3D[[i]]$pred <- as.numeric(predict(fit.def,newx=allXX,newzz = allZZ)[[i]])
+        new3D[[i]]$pred <- as.numeric(predict(fit.def,newx=allXX,newzz = allZZ))
         new3D[[i]]$pred <- pmax(new3D[[i]]$pred,0.5)
         }
 
