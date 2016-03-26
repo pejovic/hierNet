@@ -49,8 +49,10 @@ bor.geo<-as.geosamples(bor.profs)
 
 
 #====================== formulas ================================================================
-fun <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
-fun <- as.formula(paste("Humus ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
+As.fun <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
+Humus.fun <- as.formula(paste("Humus ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
+pH.fun <- as.formula(paste("pH ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
+
 #================================================================================================
 
 #================== test for stratfold3d and penint3D ============================================
@@ -60,48 +62,49 @@ source(paste(getwd(),"R","penint3D_def.R",sep="/"))
 source(paste(getwd(),"R","plotfolds.R",sep="/"))
 source(paste(getwd(),"R","predint3D.R",sep="/"))
 
+fun <- Humus.fun
 
-rez<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
+rez<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 rez$measure
 summary(rez$measure[1:5,])
 
 
-rezint<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+rezint<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
 rezint$measure
 summary(rezint$measure[1:5,])
 
 
-rezinthier<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
+rezinthier<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
 rezinthier$measure
 summary(rezinthier$measure[1:5,])
 
 
 #============= Poly ========================
-rez.poly<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
+rez.poly<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
 rez.poly$measure
 summary(rez.poly$measure[1:5,])
 
 
-rezint.poly<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+rezint.poly<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
 rezint.poly$measure
 summary(rezint.poly$measure[1:5,])
 
 
-rezinthier.poly<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
+rezinthier.poly<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
 rezinthier.poly$measure
 summary(rezinthier.poly$measure[1:5,])
 
 
 #=================== predint3D ====================================================
 
-FFL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
-FFP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+FFL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+FFP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
-TFL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
-TFP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+TFL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+TFP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
-TTL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
-TTP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+TTL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+TTP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
 #============================ Prediction Summary =============================================
 

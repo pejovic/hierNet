@@ -38,6 +38,7 @@ predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1
   
   #======== prepare regression matrix: ===========================
   regmat<-cbind(as.data.frame(prof.sp), ov)
+  regmat <- regmat[complete.cases(regmat[,all.vars(fun)[-1]]),] 
   
   if (sum(is.na(regmat[,tv])) != 0) {regmat<-regmat[-which(is.na(regmat[,tv])),]}
   
@@ -354,7 +355,10 @@ predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1
       
   }
   
-  return(list(prediction=new3D,summary=regres))
+  if(pred==TRUE){
+    return(list(prediction=new3D,summary=regres))
+  } else {return(list(summary=regres))}
+  
   #if(pred!=TRUE){return(regres)} else {return(new3D)}
   
 }
