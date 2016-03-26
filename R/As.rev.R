@@ -78,23 +78,17 @@ sm2D.lst<-names(bor.df)[c(5:23)]
 
 #====================== formulas ===================================================
 fun <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
-fm.int.H<- as.formula(paste("As ~",paste(sm2D.lst,"altitude",sep="*", collapse="+"),sep=""))
-fm.GSIF.H <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude","ns(altitude,df=4)"), collapse="+")))
-fm.GSIF.int.H <- as.formula(paste("As ~",paste(paste(sm2D.lst,"altitude",sep="*" ,collapse="+"),"ns(altitude,df=4)",sep="+")))
-fm.GSIF.int.H1 <- as.formula(paste("As ~",paste(paste(sm2D.lst,"poly(altitude,3)",sep="*",collapse="+"))))
-
-fm.poly.H <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude","poly(altitude,3)"), collapse="+")))
-
+fun <- as.formula(paste("pH ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
 #===============================================================================================
 
 #================== test for stratfold3d and penint3D ============================================
 source(paste(getwd(),"R","stratFold3D.R",sep="/"))
 source(paste(getwd(),"R","penint3D_def.R",sep="/"))
 source(paste(getwd(),"R","plotfolds.R",sep="/"))
-source(paste(getwd(),"R","penint3Dpred.R",sep="/"))
+#source(paste(getwd(),"R","penint3Dpred.R",sep="/"))
 
 
-fun<-as.formula(paste("Humus ~", paste(c(head(sm2D.lst,(length(sm2D.lst)-2)),"altitude"), collapse="+")))
+fun<-as.formula(paste("Humus ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
 regdat<-bor.df
 contVar<-sm2D.lst[-which(sm2D.lst %in% c("clc","SoilType"))]
 targetVar<-"As"
@@ -106,104 +100,171 @@ targetVar<-"As"
 detach("package:dplyr", unload=TRUE)
 strat<-stratfold3d(targetVar="As",seed=123,regdat=regdat,folds=5,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
 flist<-strat$folds
-#plotfolds(strat,"pH")
-library(dplyr)
+plotfolds(strat,"As")
+#library(dplyr)
 
 rez<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
-rez
+rez$measure
 summary(rez$measure[1:5,])
-summary(Humus.result.lst$rez$measure[1:5,])
+
 
 rezint<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
-rezint
+rezint$measure
 summary(rezint$measure[1:5,])
-summary(Humus.result.lst$rezint$measure[1:5,])
+
 
 rezinthier<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
-rezinthier
+rezinthier$measure
 summary(rezinthier$measure[1:5,])
-summary(Humus.result.lst$rezinthier$measure[1:5,])
+
 
 #============= Poly ========================
 rez.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
-rez.poly
+rez.poly$measure
 summary(rez.poly$measure[1:5,])
-summary(Humus.result.lst$rez.poly$measure[1:5,])
+
 
 rezint.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
-rezint.poly
+rezint.poly$measure
 summary(rezint.poly$measure[1:5,])
-summary(Humus.result.lst$rezint.poly$measure[1:5,])
+
 
 rezinthier.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
-rezinthier.poly
+rezinthier.poly$measure
 summary(rezinthier.poly$measure[1:5,])
-
-
-#================= Prediction Final Model ========================================
-
-rez.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
-rez.pred.l$cv.par
-rez.pred.l$results
-
-
-rezint.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
-rezint.pred.l$cv.par
-rezint.pred.l$results
-Humus.result.lst$rezint.pred.l$results
-
-rezinthier.pred.l<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="linear")
-rezinthier.pred.l$cv.par
-rezinthier.pred.l$results
-
-rez.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
-rez.pred.p$cv.par
-rez.pred.p$results
-
-rezint.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
-rezint.pred.p$cv.par
-rezint.pred.p$results
-
-rezinthier.pred.p<-penint3Dpred(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
-rezinthier.pred.p$cv.par
-rezinthier.pred.p$results
-
-Humus.result.lst<-list(rez=rez,rezint=rezint,rezinthier=rezinthier, rez.poly=rez.poly, rezint.poly=rezint.poly, rezinthier.poly=rezinthier.poly, rez.pred.l=rez.pred.l,rez.pred.p=rez.pred.p,rezint.pred.l=rezint.pred.l,rezint.pred.p=rezint.pred.p,rezinthier.pred.l=rezinthier.pred.l,rezinthier.pred.p=rezinthier.pred.p)
-
-str(Humus.result.lst)
-names(Humus.result.lst) # fali rezinthier.pred.p jer je javljao gresku kod kreiranja "results" dimenzije nisu dobre...
-
-save(Humus.result.lst,file="HumusResults.Rda")
-
-load("HumusResults.Rda")
-
 
 
 #=================== predint3D ====================================================
 
-fun<-as.formula(paste("As ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
-cogrids <- gridmaps.sm2D
-profs<-bor.profs
-int=TRUE; hier=FALSE; depth.fun="poly";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
-source(paste(getwd(),"R","stratFold3D.R",sep="/"))
+#fun<-as.formula(paste("As ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
+#cogrids <- gridmaps.sm2D
+#profs<-bor.profs
+#int=TRUE; hier=FALSE; depth.fun="poly";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
+#source(paste(getwd(),"R","stratFold3D.R",sep="/"))
 
-
+#fun=fun; profs = bor.profs; cogrids = gridmaps.sm2D; pred=TRUE ;hier = TRUE; int=TRUE; depth.fun="linear";cores=8
 #predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),depths=c(-.1,-.3),chunk=20000,preProc=TRUE,cores=2,seed=321,l=c(1:621426)){
 source(paste(getwd(),"R","predint3D.R",sep="/"))
-predint3D.As.g<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = TRUE, int=TRUE, depth.fun="linear",cores=8)
 
-str(predint3D.As.g)
+
+# ====================== int=FALSE, fun=linear =========================================
+
+FFL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+FFP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+TFL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+TFP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+TTL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+TTP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+#============================ Prediction Summary =============================================
+
+summary.cv<-list(FFL=FFL$summary$results,FFP=FFP$summary$results,TFL=TFL$summary$results,TFP=TFP$summary$results,TTL=TTL$summary$results,TTP=TTP$summary$results)
+summary.coef<-list(FFL=FFL$summary$coefficients,FFP=FFP$summary$coefficients,TFL=TFL$summary$coefficients,TFP=TFP$summary$coefficients,TTL=TTL$summary$coefficients,TTP=TTP$summary$coefficients)
+summary.pred<-list(FFL=FFL$summary$pred,FFP=FFP$summary$pred,TFL=TFL$summary$pred,TFP=TFP$summary$pred,TTL=TTL$summary$pred,TTP=TTP$summary$pred)
+
+
+summary.cv
+summary.coef
+summary.pred
+
+#============================ Prediction 0.2 =================================================
+
+prediction<-FFL$prediction[[1]][,"pred"]
+names(prediction)<-"FFL0.1"
+
+prediction$FFP0.1<-FFP$prediction[[1]]$pred
+
+prediction$TFL0.1 <- TFL$prediction[[1]]$pred
+prediction$TFP0.1 <- TFP$prediction[[1]]$pred
+
+prediction$TTL0.1 <- TTL$prediction[[1]]$pred
+prediction$TTP0.1 <- TTP$prediction[[1]]$pred
+
+
+prediction$FFL0.2<-FFL$prediction[[2]]$pred
+prediction$FFP0.2<-FFP$prediction[[2]]$pred
+
+prediction$TFL0.2 <- TFL$prediction[[2]]$pred
+prediction$TFP0.2 <- TFP$prediction[[2]]$pred
+
+prediction$TTL0.2 <- TTL$prediction[[2]]$pred
+prediction$TTP0.2 <- TTP$prediction[[2]]$pred
+
+
+prediction$FFL0.3<-FFL$prediction[[3]]$pred
+prediction$FFP0.3<-FFP$prediction[[3]]$pred
+
+prediction$TFL0.3 <- TFL$prediction[[3]]$pred
+prediction$TFP0.3 <- TFP$prediction[[3]]$pred
+
+prediction$TTL0.3 <- TTL$prediction[[3]]$pred
+prediction$TTP0.3 <- TTP$prediction[[3]]$pred
+
+str(prediction)
+
+sort(grep("L", names(prediction), value=TRUE))
+
+
+pred.stack<-stack(prediction)
+
+minR<-min(minValue(subset(pred.stack, subset=sort(grep("L", names(prediction), value=TRUE)))))
+maxR<-max(maxValue(subset(pred.stack, subset=sort(grep("L", names(prediction), value=TRUE)))))
+
+color.pal <- colorRampPalette(c("dark red","orange","light Yellow"),space="rgb")
+
+plot(subset(pred.stack, subset=sort(grep("L", names(prediction), value=TRUE)) , col=color.pal, breaks=seq(minR,maxR,length.out=30)))
+
+
+#=========================== Prediction 0.2 ===================================================
+
+
+
+prediction0.1<-FFL$prediction[[1]][,"pred"]
+names(prediction0.1)<-"FFL0.1"
+
+prediction0.1$FFP0.1<-FFP$prediction[[1]]$pred
+
+prediction0.1$TFL0.1<-TFL$prediction[[1]]$pred
+prediction0.1$TFP0.1<-TFP$prediction[[1]]$pred
+
+prediction0.1$TTL0.1<-TTL$prediction[[1]]$pred
+prediction0.1$TTP0.1<-TTP$prediction[[1]]$pred
+
+minv<-min(prediction0.1@data)
+maxv<-max(prediction0.1@data)
+
+
+pred.stack0.1<-stack(prediction0.1)
+
+plot(pred.stack0.1, col=rev( heat.colors( 10 ) ),breaks=seq(minv,maxv,length.out=10))
+
+
+
+save.image("pHPrediction2632016.RData")
+
+
+
+
+
+str(TFL)
 names(predint3D.As.g)
 
 summary(predint3D.As.g$prediction[[1]]$pred)
 
 (predint3D.As.g$summary$results)
 
-pp<-raster(predint3D.As.g[[2]],"pred")
+
+pp<-raster(new3D[[2]],"pred")
 
 plot(pp)
 
 spplot(pp,"pred")
+
+
+load("Results2432016.RData")
+
 
 
 
