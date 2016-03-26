@@ -184,7 +184,7 @@ load("HumusResults.Rda")
 fun<-as.formula(paste("As ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
 cogrids <- gridmaps.sm2D
 profs<-bor.profs
-int=TRUE; hier=FALSE; depth.fun="poly";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
+int=TRUE; hier=TRUE; depth.fun="linear";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
 source(paste(getwd(),"R","stratFold3D.R",sep="/"))
 
 
