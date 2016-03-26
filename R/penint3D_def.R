@@ -1,5 +1,5 @@
 
-penint3Drev<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),preProc=TRUE,seed=321){
+penint3D<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),preProc=TRUE,seed=321){
   
   "%ni%" <- Negate("%in%")
   
@@ -37,7 +37,8 @@ penint3Drev<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,f
   
   #======== prepare regression matrix: ===========================
   regmat<-cbind(as.data.frame(prof.sp), ov)
-
+  regmat <- regmat[complete.cases(regmat[,all.vars(fun)[-1]]),] 
+  
   if (sum(is.na(regmat[,tv])) != 0) {regmat<-regmat[-which(is.na(regmat[,tv])),]}
   
   modmat<-regmat[,c(all.vars(fun)[-1])]

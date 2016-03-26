@@ -27,15 +27,19 @@ load(paste(getwd(),"inst","extdata","gridmaps.RDa",sep="/"))
 gridmaps.sm2D$CD <- exp(-gridmaps.sm2D$DirDif)
 gridmaps.sm2D$DD <- as.numeric(exp(-scale(gridmaps.sm2D$Dist,center=FALSE)))
 
+sm2D.lst<-names(gridmaps.sm2D)
+sm2D.lst <- sm2D.lst[ -which(sm2D.lst %in% c("DirDif","Dist","AnalyticalHills","LSFactor","RelSlopePosition","VelleyDepth","optional")) ] 
+
+
 bor <- join(read.csv(paste(getwd(),"inst","extdata","Profili_sredjeno_csv.csv",sep="/")), read.csv(paste(getwd(),"inst","extdata","Koordinate_csv.csv",sep="/")), type="inner")
 bor$hdepth<-bor$Bottom-bor$Top
 bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
 bor <- bor[, - c(7:12,14,15,16,17 )]
 names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","Humus","As","Co","x","y","hdepth","altitude")
 
-bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
+#bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
 
-## Predict soil properties of interest:
+#========================= Creating Soil Profile Collections ====================================
 bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","Humus","pH","Co","As")]
 depths(bor.profs) <- ID ~ Top + Bottom
 site(bor.profs) <- ~ Soil.Type + x + y
@@ -43,111 +47,52 @@ coordinates(bor.profs) <- ~ x+y
 proj4string(bor.profs) <- CRS(utm)
 bor.geo<-as.geosamples(bor.profs)
 
-bor.xy <- bor[complete.cases(bor[,c("ID","x","y","altitude","As")]),c("ID","x","y","hdepth","altitude","As")] 
-bor.xy <- plyr::rename(bor.xy, replace=c("x" = "longitude", "y" = "latitude"))
-coordinates(bor.xy) <- ~ longitude + latitude
-proj4string(bor.xy) <- CRS(utm)
-bor.xy <- spTransform(bor.xy, CRS(gk_7))
 
-sm2D.lst<-names(gridmaps.sm2D)
-
-#=========== Overlay with covariates (gridmaps.sm2D) ================================
-ov.bor <- over(bor.xy, gridmaps.sm2D)
-bor.xy@data[,c(sm2D.lst)] <- ov.bor
-str(bor.xy)
-
-bor.df <- data.frame(bor.xy)
-bor.df <- bor.df[complete.cases(bor.df[,names(bor.df)]),] # Uvek razmisiti kod ove funkcije
-str(bor.df)
-
-#============== Removing correlated covariates (previously determined) ==============
-names(bor.df)
-bor.df<-bor.df[,-which(names(bor.df) %in% c("DirDif","Dist","AnalyticalHills","LSFactor","RelSlopePosition","VelleyDepth","optional"))]
-str(bor.df)
-
-
-
-#============== Sorting by altitude =================================================
-bor.df<-ddply(bor.df,.(altitude))
-bor.df <- bor.df[order(-bor.df$altitude),] 
-head(bor.df)
-names(bor.df)
-
-sm2D.lst<-names(bor.df)[c(5:23)]
-
-
-#====================== formulas ===================================================
+#====================== formulas ================================================================
 fun <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
-fun <- as.formula(paste("pH ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
-#===============================================================================================
+fun <- as.formula(paste("Humus ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
+#================================================================================================
 
 #================== test for stratfold3d and penint3D ============================================
+
 source(paste(getwd(),"R","stratFold3D.R",sep="/"))
 source(paste(getwd(),"R","penint3D_def.R",sep="/"))
 source(paste(getwd(),"R","plotfolds.R",sep="/"))
-#source(paste(getwd(),"R","penint3Dpred.R",sep="/"))
+source(paste(getwd(),"R","predint3D.R",sep="/"))
 
 
-fun<-as.formula(paste("Humus ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
-regdat<-bor.df
-contVar<-sm2D.lst[-which(sm2D.lst %in% c("clc","SoilType"))]
-targetVar<-"As"
-
-#regdat$altitude<-2+regdat$altitude
-#regdat[1:20,1:4]
-
-#set.seed(432)
-detach("package:dplyr", unload=TRUE)
-strat<-stratfold3d(targetVar="As",seed=123,regdat=regdat,folds=5,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
-flist<-strat$folds
-plotfolds(strat,"As")
-#library(dplyr)
-
-rez<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
+rez<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 rez$measure
 summary(rez$measure[1:5,])
 
 
-rezint<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+rezint<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
 rezint$measure
 summary(rezint$measure[1:5,])
 
 
-rezinthier<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
+rezinthier<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
 rezinthier$measure
 summary(rezinthier$measure[1:5,])
 
 
 #============= Poly ========================
-rez.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
+rez.poly<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
 rez.poly$measure
 summary(rez.poly$measure[1:5,])
 
 
-rezint.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+rezint.poly<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
 rezint.poly$measure
 summary(rezint.poly$measure[1:5,])
 
 
-rezinthier.poly<-penint3Drev(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
+rezinthier.poly<-penint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
 rezinthier.poly$measure
 summary(rezinthier.poly$measure[1:5,])
 
 
 #=================== predint3D ====================================================
-
-#fun<-as.formula(paste("As ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
-#cogrids <- gridmaps.sm2D
-#profs<-bor.profs
-#int=TRUE; hier=FALSE; depth.fun="poly";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
-#source(paste(getwd(),"R","stratFold3D.R",sep="/"))
-
-#fun=fun; profs = bor.profs; cogrids = gridmaps.sm2D; pred=TRUE ;hier = TRUE; int=TRUE; depth.fun="linear";cores=8
-#predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),depths=c(-.1,-.3),chunk=20000,preProc=TRUE,cores=2,seed=321,l=c(1:621426)){
-source(paste(getwd(),"R","predint3D.R",sep="/"))
-
-
-# ====================== int=FALSE, fun=linear =========================================
 
 FFL<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 FFP<-predint3D(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
@@ -176,15 +121,8 @@ names(prediction)<-"FFL0.1"
 
 prediction$FFP0.1<-FFP$prediction[[1]]$pred
 
-fun<-as.formula(paste("As ~", paste(c(head(sm2D.lst,(length(sm2D.lst))),"altitude"), collapse="+")))
-cogrids <- gridmaps.sm2D
-profs<-bor.profs
-int=TRUE; hier=FALSE; depth.fun="poly";pred=TRUE;depths=c(-.1,-.3); lambda=seq(0,5,0.1); deg=3;depth.fun="poly"; preProc=TRUE; cent=3; fold=5; seed=321;cores=8;chunk=20000;l=c(370000:450000)
-source(paste(getwd(),"R","stratFold3D.R",sep="/"))
-
 prediction$TFL0.1 <- TFL$prediction[[1]]$pred
 prediction$TFP0.1 <- TFP$prediction[[1]]$pred
-
 
 prediction$TTL0.1 <- TTL$prediction[[1]]$pred
 prediction$TTP0.1 <- TTP$prediction[[1]]$pred
