@@ -187,9 +187,9 @@ predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1
     
     #,dummy.par=dummy.par
     
-    if(depth.fun =="linear"){ regres <- list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred))
+    if(depth.fun =="linear"){ regres <- list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(ID=allData[,"ID"],obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred))
     } else {
-      regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred)) 
+      regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(ID=allData[,"ID"], obs=allData[,1],pred=lasso.pred,rez=allData[,1]-lasso.pred)) 
     }
 
     
@@ -269,9 +269,9 @@ predint3D<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.1
     results.cv[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred.cv)[1],Rsquared=defaultSummary(pred.cv)[2])
     
     #,dummy.par=dummy.par
-    if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred))
+    if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(ID=allData[,"ID"], obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred))
     } else {
-      regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred)) 
+      regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(ID=allData[,"ID"], obs=allData[,1],pred=fit.pred,rez=allData[,1]-fit.pred)) 
     }
     
     }
