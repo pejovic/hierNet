@@ -35,12 +35,12 @@ bor <- join(read.csv(paste(getwd(),"inst","extdata","Profili_sredjeno_csv.csv",s
 bor$hdepth<-bor$Bottom-bor$Top
 bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
 bor <- bor[, - c(7:12,14,15,16,17 )]
-names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","Humus","As","Co","x","y","hdepth","altitude")
+names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","SOM","As","Co","x","y","hdepth","altitude")
 
 #bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
 
 #========================= Creating Soil Profile Collections ====================================
-bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","Humus","pH","Co","As")]
+bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","SOM","pH","Co","As")]
 depths(bor.profs) <- ID ~ Top + Bottom
 site(bor.profs) <- ~ Soil.Type + x + y
 coordinates(bor.profs) <- ~ x+y
@@ -50,7 +50,7 @@ bor.geo<-as.geosamples(bor.profs)
 
 #====================== formulas ================================================================
 As.fun <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
-Humus.fun <- as.formula(paste("Humus ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
+SOM.fun <- as.formula(paste("SOM ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
 pH.fun <- as.formula(paste("pH ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
 
 #================================================================================================
@@ -62,11 +62,11 @@ source(paste(getwd(),"R","penint3D_def.R",sep="/"))
 source(paste(getwd(),"R","plotfolds.R",sep="/"))
 source(paste(getwd(),"R","predint3D.R",sep="/"))
 
-fun <- Humus.fun
+fun <- SOM.fun
 
 rdat <- bor
 rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
-rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","Humus")]),c("ID","longitude","latitude","hdepth","altitude","Humus")] 
+rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","SOM")]),c("ID","longitude","latitude","hdepth","altitude","SOM")] 
 
 coordinates(rdat)<-~longitude+latitude
 proj4string(rdat) <- CRS(utm)
@@ -75,8 +75,8 @@ rdat <- as.data.frame(rdat)
 head(rdat)
 
 
-rdat.folds <- stratfold3d(targetVar="Humus",regdat=rdat,folds=5,cent=3,seed=666,dimensions="3D",IDs=TRUE,sum=TRUE)
-plotfolds(rdat.folds,targetvar="Humus")
+rdat.folds <- stratfold3d(targetVar="SOM",regdat=rdat,folds=5,cent=3,seed=666,dimensions="3D",IDs=TRUE,sum=TRUE)
+plotfolds(rdat.folds,targetvar="SOM")
 
 
 
