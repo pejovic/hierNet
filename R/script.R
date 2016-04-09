@@ -64,6 +64,22 @@ source(paste(getwd(),"R","predint3D.R",sep="/"))
 
 fun <- Humus.fun
 
+rdat <- bor
+rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
+rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","Humus")]),c("ID","longitude","latitude","hdepth","altitude","Humus")] 
+
+coordinates(rdat)<-~longitude+latitude
+proj4string(rdat) <- CRS(utm)
+rdat <- spTransform(rdat, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
+rdat <- as.data.frame(rdat)
+head(rdat)
+
+
+rdat.folds <- stratfold3d(targetVar="Humus",regdat=rdat,folds=5,cent=3,seed=666,dimensions="3D",IDs=TRUE,sum=TRUE)
+plotfolds(rdat.folds,targetvar="Humus")
+
+
+
 rez<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 rez$measure
 summary(rez$measure[1:5,])
