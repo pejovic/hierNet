@@ -3,18 +3,15 @@ library(rgdal)
 library(GSIF)
 library(gdalUtils)
 library(raster)
-
 library(plyr)
 library(aqp)
 library(psych)
 library(mda)
 library(classInt)
 library(caret)
-library(corrplot)
 library(MASS)
 library(splines)
 library(glmnet)
-library(glinternet)
 library(hierNet)
 library(magrittr)
 library(doParallel)
@@ -61,9 +58,12 @@ source(paste(getwd(),"R","stratFold3D.R",sep="/"))
 source(paste(getwd(),"R","penint3D_def.R",sep="/"))
 source(paste(getwd(),"R","plotfolds.R",sep="/"))
 source(paste(getwd(),"R","predint3D.R",sep="/"))
+source(paste(getwd(),"R","penint3D_defP.R",sep="/"))
 
 fun <- SOM.fun
 
+
+#=================================== plot stratified fold ============================================
 rdat <- bor
 rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
 rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","SOM")]),c("ID","longitude","latitude","hdepth","altitude","SOM")] 
@@ -78,7 +78,7 @@ head(rdat)
 rdat.folds <- stratfold3d(targetVar="SOM",regdat=rdat,folds=5,cent=3,seed=666,dimensions="3D",IDs=TRUE,sum=TRUE)
 plotfolds(rdat.folds,targetvar="SOM")
 
-
+#==============================================================================================================
 
 rez<-penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 rez$measure
