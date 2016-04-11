@@ -1,6 +1,21 @@
 
 # solution for including all polynomial terms in interactions.
 
+# predint3D is function for making prediction based on interaction approach.
+# fun - function
+# profs - Soil Profile Collection
+# cogrids - SpatialPixelsDataFrame with covariates.
+# hier - logical, does the hierarchial principle need to be honor
+# pred - logocal, if TRUE , prediction on grids will be made
+# lambda - grid of lambda (regularization parameter for lasso)
+# deg - degree of polynomial depth function
+# fold - number of folds
+# cent - number of centers for k-means clustering
+# int - logical, if TRUE , interaction will be included in model
+# preProc - logical, if TRUE, covariates will be scaled and centered
+# chunk - number of rows in prediction matrix (subselection needed to speedup the prediction computation)
+# cores - number of cores
+
 penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),preProc=TRUE,seed=321){
   
   "%ni%" <- Negate("%in%")

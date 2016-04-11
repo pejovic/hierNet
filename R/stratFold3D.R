@@ -1,5 +1,10 @@
-# Create stratified folds
-# Treba uraditi prosek uzimajuci u obzir sirinu horizonta...
+# Create stratified folds, taking into account 3D position of observation.
+#   1. In the first step, observations are clustered according to k-means clustering (k=cent)
+#   2. then, in each cluster:
+#       a. Each profiles are averaged by weigthted mean
+#       b. profiles were sampled randomly according to number of folds
+#   3. Merge each fold with corresponding folds in other clusters
+
 
 stratfold3d <- function(targetVar,regdat,folds=5,cent=3,preProc=TRUE,seed=666,dimensions=list("2D","3D"),IDs=TRUE,sum=FALSE){
   
