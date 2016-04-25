@@ -184,6 +184,7 @@ summary.pred
 str(summary.pred)
 lapply(summary.pred, function(x) {names(x)<-c("ID","x","y","hdepth","altitude","observed","predicted","residual")}, return(summary.pred))
 
+
 #============================ Prediction 0.2 =================================================
 
 prediction<-FFL$prediction[[1]][,"pred"]
