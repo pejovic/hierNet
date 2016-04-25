@@ -160,6 +160,7 @@ IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FAL
 IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
+
 #============================= Coefficients matrix ==========================================
 cmL <- data.frame(variable=IntHL$summary$coefficients[,1], BaseL.me=BaseL$summary$coefficients[2:27], IntL.me=IntL$summary$coefficients[2:27],IntL.ie=c(IntL$summary$coefficients[28:52],0),IntHL.me=IntHL$summary$coefficients[,2],IntHL.ie=IntHL$summary$coefficients[,3] )
 
