@@ -205,9 +205,9 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     
     #,dummy.par=dummy.par
     
-    if(depth.fun =="linear"){ regres <- list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"],observed = data.frame(observed=allData[,1]) , predicted = data.frame(predicted=lasso.pred), residual = data.frame(residual=allData[,1]-lasso.pred)))
+    if(depth.fun =="linear"){ regres <- list(results=results.cv, model=lasso.mod, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"],observed = data.frame(observed=allData[,1]) , predicted = data.frame(predicted=lasso.pred), residual = data.frame(residual=allData[,1]-lasso.pred)))
     } else {
-      regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=lasso.pred), residual = data.frame(residual=allData[,1]-lasso.pred))) 
+      regres<-list(results=results.cv, model=lasso.mod ,preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=lasso.pred), residual = data.frame(residual=allData[,1]-lasso.pred))) 
     }
 
     
@@ -243,9 +243,14 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     fit.pred <- predict(fit.def,newx=allx,newzz = allzz)
     fit.pred <- pmax(fit.pred,0.5)
     
-    ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(colnames(modmat))])
-    me<-fit$bp[,which(fitcv$lamhat==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat==fit$lamlist), drop = F]
-    rbind(ie,me)
+    if(depth.fun =="linear"){ ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(colnames(modmat))]) 
+    } else {
+      ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,(length(colnames(modmat))-deg+1):length(colnames(modmat))]) 
+    }
+    
+    #ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(colnames(modmat))]) 
+    me <- fit$bp[,which(fitcv$lamhat==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat==fit$lamlist), drop = F]
+
     
     obs.pred <- data.frame(obs=ally,pred=fit.pred)
     coef.list<-data.frame(cov.name=colnames(allx),me,ie)
@@ -287,9 +292,9 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     results.cv[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred.cv)[1],Rsquared=defaultSummary(pred.cv)[2])
     
     #,dummy.par=dummy.par
-    if(depth.fun =="linear"){ regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=fit.pred), residual = data.frame(residual=allData[,1]-fit.pred)))
+    if(depth.fun =="linear"){ regres<-list(results=results.cv,model=fit.def, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=fit.pred), residual = data.frame(residual=allData[,1]-fit.pred)))
     } else {
-      regres<-list(results=results.cv, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=fit.pred), residual = data.frame(residual=allData[,1]-fit.pred))) 
+      regres<-list(results=results.cv, model=fit.def, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=fit.pred), residual = data.frame(residual=allData[,1]-fit.pred))) 
     }
     
     }
