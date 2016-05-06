@@ -52,6 +52,12 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
   
   ov <- over(prof.sp, cogrids)# %>% cbind(ID=prof.sp@data[,"ID"],.)
   
+  fnames <- ov %>% subset(., select=which(sapply(., is.factor))) %>% names()
+  
+  for(i in fnames){
+    ov[,i] <- factor(ov[,i])
+  }
+  
   #======== prepare regression matrix: ===========================
   regmat<-cbind(as.data.frame(prof.sp), ov)
   regmat <- regmat[complete.cases(regmat[,all.vars(fun)[-1]]),] 
@@ -92,7 +98,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     }
     
     nzv.par<-preProcess(modmat,method=c("nzv"))
-    modmat<-as.data.frame(predict(nzv.par,modmat))
+    #modmat<-as.data.frame(predict(nzv.par,modmat))
     
     names(modmat)<-gsub( "\\_|/|\\-|\"|\\s" , "." , names(modmat) )
     
@@ -135,7 +141,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
   
   #=====================================================================================================
   
-  regmat.def <- cbind(regmat[, tv],modmat)
+  regmat.def <- as.data.frame(cbind(regmat[, tv],modmat))
   names(regmat.def) <- c(tv, names(regmat.def[-1]))
   
   #=====================================================================================================

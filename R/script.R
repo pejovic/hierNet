@@ -30,6 +30,17 @@ gridmaps.sm2D$DD <- as.numeric(exp(-scale(gridmaps.sm2D$Dist,center=FALSE)))
 sm2D.lst<-names(gridmaps.sm2D)
 sm2D.lst <- sm2D.lst[ -which(sm2D.lst %in% c("DirDif","Dist","AnalyticalHills","LSFactor","RelSlopePosition","VelleyDepth","optional")) ] 
 
+#================== Covariates table =================================================
+
+CovNames <- c("Digital Elevation Model", "Aspect", "Slope","Topographic Wetness Index", "Convergence Index" ,"Cross Sectional Curvature", "Longitudinal Curvature", "Channel Network Base Level", "Channel Network Base Level" ,"Vertical Distance to Channel Network", "Negative Openness","Positive Openness", "Wind Effect (East)","Wind Effect (North-West)","Down-wind Dilution", "Cross-wind Dilution" ,"Corine Land Cover 2006", "Soil Type", "Depth")
+CovAbb <- c("DEM","Aspect","Slope","TWI","ConvInd","CrossSectCurv","LongCurv","ChannelNetBaseLevel","VertDistChannelNet","NegOpenness", "PosOpenness","WindEffectEast","WindEffectNorthWest","DD","CD","clc","SoilType")
+
+covs<-data.frame(Name=c("Aspect","Cathment Area","Channel Network Base Level","Convergence Index","Cross Sectional Curvature","Digital Elevation Model","Longitudinal Curvature","Negative Openness","Positive Openness","Slope","Topographic Wetness Index","Vertical Distance Chanell Network","Wind Effect (East)","Wind Effect (North-West)","Corine Land Cover 2006","Soil Type","depth"),
+                 Abbrevation=all.vars(SOM.fun)[-1],
+                 Type=c("Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Categorical","Categorical","Continual")
+                 )
+
+
 #gridmaps <- gridmaps.sm2D[,sm2D.lst]
 #save(gridmaps,file="C:/Users/Milutin/Dropbox/ES3D/Data and Scripts/gridmaps.rda")
 
@@ -42,7 +53,7 @@ bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
 bor <- bor[, - c(7:12,14,15,16,17 )]
 names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","SOM","As","Co","x","y","hdepth","altitude")
 
-bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
+#bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
 
 #========================= Creating Soil Profile Collections ====================================
 bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","SOM","pH","Co","As")]
@@ -54,22 +65,22 @@ bor.geo<-as.geosamples(bor.profs)
 
 
 #====================== formulas ================================================================
-As.fun <- as.formula(paste("As ~", paste(c(sm2D.lst,"altitude"), collapse="+")))
-SOM.fun <- as.formula(paste("SOM ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
-pH.fun <- as.formula(paste("pH ~", paste(c(sm2D.lst[-which(sm2D.lst %in% c("ES","CD","DD"))],"altitude"), collapse="+")))
+As.fun <- as.formula(paste("As ~", paste(c(CovAbb,"altitude"), collapse="+")))
+SOM.fun <- as.formula(paste("SOM ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"altitude"), collapse="+")))
+pH.fun <- as.formula(paste("pH ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"altitude"), collapse="+")))
 
 #================================================================================================
 
 #================== test for stratfold3d and penint3D ============================================
 
 source(paste(getwd(),"R","stratFold3D.R",sep="/"))
-source(paste(getwd(),"R","penint3D_def.R",sep="/"))
+#source(paste(getwd(),"R","penint3D_def.R",sep="/"))
 source(paste(getwd(),"R","plotfolds.R",sep="/"))
-source(paste(getwd(),"R","predint3D.R",sep="/"))
+#source(paste(getwd(),"R","predint3D.R",sep="/"))
 source(paste(getwd(),"R","penint3D_defP.R",sep="/"))
 source(paste(getwd(),"R","predint3DP.R",sep="/"))
 
-fun <- As.fun
+fun <- SOM.fun
 
 
 #=================================== plot stratified fold ============================================
@@ -109,33 +120,33 @@ dev.off()
 
 #==============================================================================================================
 
-BaseLcv <- penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
+BaseLcv <- penint3DP(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="linear")
 BaseLcv$measure
 summary(BaseLcv$measure[1:5,])
 
 
-IntLcv <- penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
+IntLcv <- penint3DP(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="linear")
 IntLcv$measure
 summary(IntLcv$measure[1:5,])
 
 
-IntHLcv <- penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
+IntHLcv <- penint3DP(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=FALSE, depth.fun="linear")
 IntHLcv$measure
 summary(IntHLcv$measure[1:5,])
 
 
 #============= Poly ========================
-BasePcv <- penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
+BasePcv <- penint3DP(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=FALSE, depth.fun="poly")
 BasePcv$measure
 summary(BasePcv$measure[1:5,])
 
 
-IntPcv <- penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+IntPcv <- penint3DP(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
 IntPcv$measure
 summary(IntPcv$measure[1:5,])
 
 
-IntPHcv <- penint3D(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
+IntPHcv <- penint3DP(fun=fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
 IntPHcv$measure
 summary(IntPHcv$measure[1:5,])
 
@@ -170,6 +181,8 @@ i2 <- seq(2,l-29,3)
 i3 <- seq(3,l-29,3)
 
 cmP <- data.frame(variable=IntHP$summary$coefficients[,1], BaseP.me=BaseP$summary$coefficients[2:29], IntP.me=IntP$summary$coefficients[2:29],IntP.ie1=c(IntP$summary$coefficients[30:l][i1],0,0,0),IntP.ie2=c(IntP$summary$coefficients[30:l][i2],0,0,0),IntP.ie3=c(IntP$summary$coefficients[30:l][i3],0,0,0),IntHP.me=IntHP$summary$coefficients[,2],IntHP.ie1=IntHP$summary$coefficients[,4],IntHP.ie2=IntHP$summary$coefficients[,5],IntHP.ie3=IntHP$summary$coefficients[,6] )
+
+stargazer(cmL, summary=FALSE, digits=3, type="text")
 #============================ Prediction Summary =============================================
 
 
@@ -231,8 +244,12 @@ maxR<-max(maxValue(subset(pred.stack, subset=sort(grep("L", names(prediction), v
 
 color.pal <- colorRampPalette(c("dark red","orange","light Yellow"),space="rgb")
 
-plot(subset(pred.stack, subset=sort(grep("TF", names(prediction), value=TRUE)) , col=color.pal, breaks=seq(minR,maxR,length.out=30)))
+plot(subset(pred.stack, subset=sort(grep("IntL", names(prediction), value=TRUE)) , col=color.pal, breaks=seq(minR,maxR,length.out=30)),axes=FALSE)
 
+gridpix <- as(pred.stack,"SpatialPixelsDataFrame")
+
+color.pal <- colorRampPalette(c("dark red","orange","light Yellow"))
+spplot(gridpix,"IntL0.1",col.regions = color.pal)
 
 #=========================== Profile plots ===================================================
 
@@ -324,7 +341,36 @@ ddply(res.profs.data[,c(1,7:12,14)],.(ID),summarize, r=max(BaseL)-min(BaseL))
 
 ################## Figure 2 ######################################################################################
 # again, this time along 1-cm slices, computing quantiles
-agg <- slab(bor.profs, fm= ~ As+SOM+pH, slab.structure=seq(0,70,5))
+mean.and.sd <- function(values) {
+  narm.values<-values[!is.na(values)]
+  m <- mean(values, na.rm=TRUE)
+  s <- sd(values, na.rm=TRUE)
+  s.mean<-s/sqrt(length(narm.values))
+  mini <- min(values, na.rm=TRUE)
+  maxi <- max(values, na.rm=TRUE)
+  q25<-quantile(values, probs = 0.25, na.rm=TRUE)
+  q75<-quantile(values, probs = 0.75, na.rm=TRUE)
+  cvar<-s/m
+  med<-median(values,na.rm=TRUE)
+  inqr <- IQR(values,na.rm=TRUE)
+  n<-length(narm.values)
+  res <- c(min=mini,q1=q25,mean=m, mean.sd=s.mean ,median=med, q3=q75 ,max=maxi, IQR=inqr,sd=s ,CV=cvar,obs=n)
+  return(res)
+}
+
+
+mean.and.sd2 <- function(values) {
+  narm.values<-values[!is.na(values)]
+  m <- mean(values, na.rm=TRUE)
+  s <- sd(values, na.rm=TRUE)
+  s.mean<-s/sqrt(length(narm.values))
+  n<-length(narm.values)
+  res <- c(mean=m, mean.sd=s.mean ,sd=s,obs=n)
+  return(res)
+}
+
+
+agg <- slab(bor.profs, fm= ~ As+SOM+pH, slab.structure=seq(0,70,5),slab.fun=mean.and.sd2)
 
 ## see ?slab for details on the default aggregate function
 head(agg)
