@@ -80,7 +80,7 @@ source(paste(getwd(),"R","plotfolds.R",sep="/"))
 source(paste(getwd(),"R","penint3D_defP.R",sep="/"))
 source(paste(getwd(),"R","predint3DP.R",sep="/"))
 
-fun <- SOM.fun
+fun <- pH.fun
 
 
 #=================================== plot stratified fold ============================================
