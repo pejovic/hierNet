@@ -48,6 +48,8 @@ covs<-data.frame(Name=c("Aspect","Cathment Area","Channel Network Base Level","C
 bor <- join(read.csv(paste(getwd(),"inst","extdata","Profili_sredjeno_csv.csv",sep="/")), read.csv(paste(getwd(),"inst","extdata","Koordinate_csv.csv",sep="/")), type="inner")
 #save(bor,file="C:/Users/Milutin/Dropbox/ES3D/Data and Scripts/BorData.rda")
 
+levels(bor$Soil.Type) <- c("Dystric Cambisol","Dystric Leptosol","Dystric Regosol","Eutric Cambisol","Eutric Leptosol","Eutric Regosol","Calcaric Cambisol","Mollic Leptosol","Colluvium","Luvisol","Planosol","Vertisol")
+
 bor$hdepth<-bor$Bottom-bor$Top
 bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
 bor <- bor[, - c(7:12,14,15,16,17 )]
@@ -162,6 +164,9 @@ latex.table.by(summary.n5cv, num.by.vars = 2)
 
 #=================== predint3D ====================================================
 
+
+fun <- SOM.fun
+
 BaseL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 BaseP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
@@ -173,16 +178,135 @@ IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FA
 
 
 #============================= Coefficients matrix ==========================================
-cmL <- data.frame(variable=IntHL$summary$coefficients[,1], BaseL.me=BaseL$summary$coefficients[2:27], IntL.me=IntL$summary$coefficients[2:27],IntL.ie=c(IntL$summary$coefficients[28:52],0),IntHL.me=IntHL$summary$coefficients[,2],IntHL.ie=IntHL$summary$coefficients[,3] )
+ll <- length(IntL$summary$coefficients)
+pp <- length(IntHL$summary$coefficients[,1])+1
+
+
+cmL <- data.frame(variable=IntHL$summary$coefficients[,1], BaseL.me=BaseL$summary$coefficients[2:pp], IntL.me=IntL$summary$coefficients[2:pp],IntL.ie=c(IntL$summary$coefficients[(pp+1):ll],0),IntHL.me=IntHL$summary$coefficients[,2],IntHL.ie=IntHL$summary$coefficients[,3] )
+
 
 l <- length(IntP$summary$coefficients)
-i1 <- seq(1,l-29,3)
-i2 <- seq(2,l-29,3)
-i3 <- seq(3,l-29,3)
+p <- length(IntHP$summary$coefficients[,1])+1
+i1 <- seq(1,l-p,3)
+i2 <- seq(2,l-p,3)
+i3 <- seq(3,l-p,3)
 
-cmP <- data.frame(variable=IntHP$summary$coefficients[,1], BaseP.me=BaseP$summary$coefficients[2:29], IntP.me=IntP$summary$coefficients[2:29],IntP.ie1=c(IntP$summary$coefficients[30:l][i1],0,0,0),IntP.ie2=c(IntP$summary$coefficients[30:l][i2],0,0,0),IntP.ie3=c(IntP$summary$coefficients[30:l][i3],0,0,0),IntHP.me=IntHP$summary$coefficients[,2],IntHP.ie1=IntHP$summary$coefficients[,4],IntHP.ie2=IntHP$summary$coefficients[,5],IntHP.ie3=IntHP$summary$coefficients[,6] )
 
-stargazer(cmL, summary=FALSE, digits=3, type="text")
+cmP.SOM <- data.frame(variable=IntHP$summary$coefficients[,1], BaseP.me=BaseP$summary$coefficients[2:p], IntP.me=IntP$summary$coefficients[2:p],IntP.ie1=c(IntP$summary$coefficients[(p+1):l][i1],0,0,0),IntP.ie2=c(IntP$summary$coefficients[(p+1):l][i2],0,0,0),IntP.ie3=c(IntP$summary$coefficients[(p+1):l][i3],0,0,0),IntHP.me=IntHP$summary$coefficients[,2],IntHP.ie1=IntHP$summary$coefficients[,3],IntHP.ie2=IntHP$summary$coefficients[,4],IntHP.ie3=IntHP$summary$coefficients[,5] )
+cmSOM <- cmP.SOM[,c(1,7:10)]
+#cmSOM <- cmP.SOM[,c(1,3:6)]
+
+#=================== predint3D ====================================================
+fun <- pH.fun
+
+BaseL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+BaseP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+IntL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+
+#============================= Coefficients matrix ==========================================
+ll <- length(IntL$summary$coefficients)
+pp <- length(IntHL$summary$coefficients[,1])+1
+
+
+cmL <- data.frame(variable=IntHL$summary$coefficients[,1], BaseL.me=BaseL$summary$coefficients[2:pp], IntL.me=IntL$summary$coefficients[2:pp],IntL.ie=c(IntL$summary$coefficients[(pp+1):ll],0),IntHL.me=IntHL$summary$coefficients[,2],IntHL.ie=IntHL$summary$coefficients[,3] )
+
+
+l <- length(IntP$summary$coefficients)
+p <- length(IntHP$summary$coefficients[,1])+1
+i1 <- seq(1,l-p,3)
+i2 <- seq(2,l-p,3)
+i3 <- seq(3,l-p,3)
+
+cmP.pH <- data.frame(variable=IntHP$summary$coefficients[,1], BaseP.me=BaseP$summary$coefficients[2:p], IntP.me=IntP$summary$coefficients[2:p],IntP.ie1=c(IntP$summary$coefficients[(p+1):l][i1],0,0,0),IntP.ie2=c(IntP$summary$coefficients[(p+1):l][i2],0,0,0),IntP.ie3=c(IntP$summary$coefficients[(p+1):l][i3],0,0,0),IntHP.me=IntHP$summary$coefficients[,2],IntHP.ie1=IntHP$summary$coefficients[,3],IntHP.ie2=IntHP$summary$coefficients[,4],IntHP.ie3=IntHP$summary$coefficients[,5] )
+cmpH <- cmP.pH[,c(1,7:10)]
+#cmpH <- cmP.pH[,c(1,3:6)]
+#============================ As ====================
+
+bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
+
+#========================= Creating Soil Profile Collections ====================================
+bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","SOM","pH","Co","As")]
+depths(bor.profs) <- ID ~ Top + Bottom
+site(bor.profs) <- ~ Soil.Type + x + y
+coordinates(bor.profs) <- ~ x+y
+proj4string(bor.profs) <- CRS(utm)
+bor.geo<-as.geosamples(bor.profs)
+
+#=================== predint3D ====================================================
+fun <- As.fun
+
+
+BaseL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+BaseP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+IntL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+
+#============================= Coefficients matrix ==========================================
+ll <- length(IntL$summary$coefficients)
+pp <- length(IntHL$summary$coefficients[,1])+1
+
+
+cmL <- data.frame(variable=IntHL$summary$coefficients[,1], BaseL.me=BaseL$summary$coefficients[2:pp], IntL.me=IntL$summary$coefficients[2:pp],IntL.ie=c(IntL$summary$coefficients[(pp+1):ll],0),IntHL.me=IntHL$summary$coefficients[,2],IntHL.ie=IntHL$summary$coefficients[,3] )
+
+
+l <- length(IntP$summary$coefficients)
+p <- length(IntHP$summary$coefficients[,1])+1
+i1 <- seq(1,l-p,3)
+i2 <- seq(2,l-p,3)
+i3 <- seq(3,l-p,3)
+
+cmP.As <- data.frame(variable=IntHP$summary$coefficients[,1], BaseP.me=BaseP$summary$coefficients[2:p], IntP.me=IntP$summary$coefficients[2:p],IntP.ie1=c(IntP$summary$coefficients[(p+1):l][i1],0,0,0),IntP.ie2=c(IntP$summary$coefficients[(p+1):l][i2],0,0,0),IntP.ie3=c(IntP$summary$coefficients[(p+1):l][i3],0,0,0),IntHP.me=IntHP$summary$coefficients[,2],IntHP.ie1=IntHP$summary$coefficients[,3],IntHP.ie2=IntHP$summary$coefficients[,4],IntHP.ie3=IntHP$summary$coefficients[,5] )
+cmAs <- cmP.As[,c(1,7:10)]
+#cmAs <- cmP.As[,c(1,3:6)]
+#======================
+
+
+
+cm <- list(cmAs = cmAs, cmpH = cmpH, cmSOM = cmSOM)
+save(cm, file="cm.rda")
+
+cm1 <- cbind(cm$cmSOM,cm$cmpH[,-1])
+cm1[,1] <- as.character(cm1[,1])
+cm1 <- rbind(cm1[1:26,-1],rep(0,8),rep(0,8), cm1[27:29,-1])
+cm1 <- cbind(cm$cmAs$variable,cm1)
+cm1 <- cbind(cm$cmAs,cm1[,-1])
+names(cm1) <- c("variable","As.me","As.ie1","As.ie2","As.ie3","SOM.me","SOM.ie1","SOM.ie2","SOM.ie3","pH.me","pH.ie1","pH.ie2","pH.ie3")
+
+stargazer(cm1,summary=FALSE, digits=3, type="latex")
+
+intCoefs <- cm1
+intHCoefs <- cm1
+
+stargazer(intHCoefs,summary=FALSE, digits=3, type="latex")
+
+#============================ Changing coefficients =================================================
+
+altitude <- data.frame(altitude=seq(-0.0,-0.6,-0.01))
+
+#altitude <- data.frame(altitude=c(-0.1,-0.3,-0.4))
+altitude.s <- as.numeric(predict(IntHP$summary$preProc$alt.par ,newdata=altitude)[,1])
+
+
+coefs<-as.numeric(cmP.As[cmP.As$variable=="Slope",3:6])
+
+effects <- coefs[1] + coefs[2]*altitude.s + coefs[3]*altitude.s^2 + coefs[4]*altitude.s^3
+
+effects.data <-data.frame(altitude, var=effects)
+
+qplot(var,altitude, data = effects.data, geom = "line")
+
+#====================================================================================================
 #============================ Prediction Summary =============================================
 
 
