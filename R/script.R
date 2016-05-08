@@ -18,7 +18,7 @@ library(doParallel)
 library(foreach)
 library(stargazer)
 
-#load("SOMPrediction2732016.RData")
+#load("pHPrediction2542016.rda")
 
 gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
 utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
@@ -32,13 +32,15 @@ sm2D.lst <- sm2D.lst[ -which(sm2D.lst %in% c("DirDif","Dist","AnalyticalHills","
 
 #================== Covariates table =================================================
 
-CovNames <- c("Digital Elevation Model", "Aspect", "Slope","Topographic Wetness Index", "Convergence Index" ,"Cross Sectional Curvature", "Longitudinal Curvature", "Channel Network Base Level", "Channel Network Base Level" ,"Vertical Distance to Channel Network", "Negative Openness","Positive Openness", "Wind Effect (East)","Wind Effect (North-West)","Down-wind Dilution", "Cross-wind Dilution" ,"Corine Land Cover 2006", "Soil Type", "Depth")
-CovAbb <- c("DEM","Aspect","Slope","TWI","ConvInd","CrossSectCurv","LongCurv","ChannelNetBaseLevel","VertDistChannelNet","NegOpenness", "PosOpenness","WindEffectEast","WindEffectNorthWest","DD","CD","clc","SoilType")
+CovNames <- c("Digital Elevation Model", "Aspect", "Slope","Topographic Wetness Index", "Convergence Index" ,"Cross Sectional Curvature", "Longitudinal Curvature", "Channel Network Base Level" ,"Vertical Distance to Channel Network", "Negative Openness","Positive Openness", "Wind Effect (East)","Wind Effect (North-West)","Down-wind Dilution", "Cross-wind Dilution" ,"Corine Land Cover 2006", "Soil Type", "Depth")
+CovAbb <- c("DEM","Aspect","Slope","TWI","ConvInd","CrSectCurv","LongCurv","ChNetBLevel","VDistChNet","NegOp", "PosOp","WEeast","WEnw","DD","CD","clc","SoilType","d")
 
-covs<-data.frame(Name=c("Aspect","Cathment Area","Channel Network Base Level","Convergence Index","Cross Sectional Curvature","Digital Elevation Model","Longitudinal Curvature","Negative Openness","Positive Openness","Slope","Topographic Wetness Index","Vertical Distance Chanell Network","Wind Effect (East)","Wind Effect (North-West)","Corine Land Cover 2006","Soil Type","depth"),
-                 Abbrevation=all.vars(SOM.fun)[-1],
-                 Type=c("Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Continual","Categorical","Categorical","Continual")
+covs<-data.frame(Name=CovNames,
+                 Abbrevation=CovAbb,
+                 Type=c("C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","F","F","C")
                  )
+
+stargazer(covs,summary=FALSE,type="latex",digits=2)
 
 
 #gridmaps <- gridmaps.sm2D[,sm2D.lst]
@@ -46,7 +48,9 @@ covs<-data.frame(Name=c("Aspect","Cathment Area","Channel Network Base Level","C
 
 
 bor <- join(read.csv(paste(getwd(),"inst","extdata","Profili_sredjeno_csv.csv",sep="/")), read.csv(paste(getwd(),"inst","extdata","Koordinate_csv.csv",sep="/")), type="inner")
-#save(bor,file="C:/Users/Milutin/Dropbox/ES3D/Data and Scripts/BorData.rda")
+
+levels(bor$Soil.Type) <- c("Dystric Cambisol","Dystric Leptosol","Dystric Regosol","Eutric Cambisol","Eutric Leptosol","Eutric Regosol","Calcaric Cambisol","Mollic Leptosol","Colluvium","Luvisol","Planosol","Vertisol")
+
 
 bor$hdepth<-bor$Bottom-bor$Top
 bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
@@ -251,6 +255,45 @@ gridpix <- as(pred.stack,"SpatialPixelsDataFrame")
 color.pal <- colorRampPalette(c("dark red","orange","light Yellow"))
 spplot(gridpix,"IntL0.1",col.regions = color.pal)
 
+str(prediction)
+#### ====================== Prediction =============================================
+zmax <- max(gridpix$IntHP0.1, gridpix$IntHP0.2,gridpix$IntHP0.3)
+
+zmin <- min(gridpix$IntHP0.1, gridpix$IntHP0.2,gridpix$IntHP0.3)
+
+zmax <- round(zmax) 
+
+zmin <- round(zmin) 
+
+ramp <- seq(from = zmin, to = zmax, by = 0.2)
+
+color.pal <- colorRampPalette(c("dark red","red","orange","yellow","light green","green","light blue","blue","dark blue"))
+
+color.pal <- colorRampPalette(c("dark red","orange","light Yellow"))
+color.palr <- colorRampPalette(c("light yellow","orange","dark red"))
+#color.pal <- brewer.pal(8,name="YlOrRd")
+
+ckey <- list(labels=list(cex=2))
+
+p1 <- spplot(gridpix, "IntHP0.1", asp = 1, at = ramp, col.regions = color.pal,colorkey=FALSE)
+p2 <- spplot(gridpix, "IntHP0.2", asp = 1, at = ramp,  col.regions = color.pal,colorkey=FALSE)
+p3 <- spplot(gridpix, "IntHP0.3", asp = 1, at = ramp, col.regions = color.pal,colorkey=ckey)
+p3
+
+pdf("pHplot0.1.pdf",width=6,height=12)
+p1
+dev.off()
+
+pdf("pHplot0.2.pdf",width=6,height=12)
+p2
+dev.off()
+
+
+pdf("pHplot0.3.pdf",width=7,height=12)
+p3
+dev.off()
+
+
 #=========================== Profile plots ===================================================
 
 FFL.p <- BaseL$summary$pred
@@ -392,7 +435,6 @@ class(Figure2)
 pdf("AsSOMpH.pdf",width=10,height=8)
 plot(Figure2) # Make plot
 dev.off()
-
 
 
 
