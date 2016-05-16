@@ -18,7 +18,7 @@ library(doParallel)
 library(foreach)
 library(stargazer)
 
-#load("pHPrediction2542016.rda")
+load("PredTables1452016.RData")
 
 gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
 utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
@@ -28,19 +28,21 @@ gridmaps.sm2D$CD <- exp(-gridmaps.sm2D$DirDif)
 gridmaps.sm2D$DD <- as.numeric(exp(-scale(gridmaps.sm2D$Dist,center=FALSE)))
 
 sm2D.lst<-names(gridmaps.sm2D)
-sm2D.lst <- sm2D.lst[ -which(sm2D.lst %in% c("DirDif","Dist","AnalyticalHills","LSFactor","RelSlopePosition","VelleyDepth","optional")) ] 
+sm2D.lst <- sm2D.lst[ -which(sm2D.lst %in% c("DirDif","Dist","AnalyticalHills","LSFactor","RelSlopePosition","VelleyDepth","optional")) ]
+
+names(gridmaps.sm2D) <- c("AHils","Aspect","CatchArea","ChNetBLevel","ConvInd","CrSectCurv","DEM","DirDif","Dist","ES","LongCurv","LSFactor","NegOp","PosOp","RelSlopePosition","Slope","TWI","VelleyDepth","VDistChNet","WEeast","WEnw","clc","SoilType","CD","DD")
 
 #================== Covariates table =================================================
 
-CovNames <- c("Digital Elevation Model", "Aspect", "Slope","Topographic Wetness Index", "Convergence Index" ,"Cross Sectional Curvature", "Longitudinal Curvature", "Channel Network Base Level" ,"Vertical Distance to Channel Network", "Negative Openness","Positive Openness", "Wind Effect (East)","Wind Effect (North-West)","Down-wind Dilution", "Cross-wind Dilution" ,"Corine Land Cover 2006", "Soil Type", "Depth")
-CovAbb <- c("DEM","Aspect","Slope","TWI","ConvInd","CrSectCurv","LongCurv","ChNetBLevel","VDistChNet","NegOp", "PosOp","WEeast","WEnw","DD","CD","clc","SoilType","d")
+CovNames <- c("Digital Elevation Model", "Aspect", "Slope","Topographic Wetness Index", "Convergence Index" ,"Cross Sectional Curvature", "Longitudinal Curvature", "Channel Network Base Level" ,"Vertical Distance to Channel Network", "Negative Openness","Positive Openness", "Wind Effect (East)","Wind Effect (North-West)","Down-wind Dilution", "Cross-wind Dilution" ,"Corine Land Cover 2006", "Soil Type")
+CovAbb <- c("DEM","Aspect","Slope","TWI","ConvInd","CrSectCurv","LongCurv","ChNetBLevel","VDistChNet","NegOp", "PosOp","WEeast","WEnw","DD","CD","clc","SoilType")
 
-covs<-data.frame(Name=CovNames,
-                 Abbrevation=CovAbb,
-                 Type=c("C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","F","F","C")
-                 )
+#covs<-data.frame(Name=CovNames,
+#                 Abbrevation=CovAbb,
+#                Type=c("C","C","C","C","C","C","C","C","C","C","C","C","C","C","C","F","F")
+#                 )
 
-stargazer(covs,summary=FALSE,type="latex",digits=2)
+#stargazer(covs,summary=FALSE,type="latex",digits=2)
 
 
 #gridmaps <- gridmaps.sm2D[,sm2D.lst]
@@ -59,6 +61,7 @@ bor$altitude <- - (bor$Top / 100 + (( bor$Bottom - bor$Top ) / 2) / 100)
 bor <- bor[, - c(7:12,14,15,16,17 )]
 names(bor) <- c("Soil.Type","ID","Horizont","Top" , "Bottom","pH","SOM","As","Co","x","y","hdepth","altitude")
 
+bor[which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),"As"] <- NA
 #bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
 
 #========================= Creating Soil Profile Collections ====================================
@@ -86,7 +89,7 @@ source(paste(getwd(),"R","plotfolds.R",sep="/"))
 source(paste(getwd(),"R","penint3D_defP.R",sep="/"))
 source(paste(getwd(),"R","predint3DP.R",sep="/"))
 
-fun <- pH.fun
+fun <- As.fun
 
 
 #=================================== plot stratified fold ============================================
@@ -180,6 +183,11 @@ IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FAL
 IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
+SOM.pred <- list(BaseL=BaseL$summary$pred, BaseP=BaseP$summary$pred, IntL=IntL$summary$pred, IntP=IntP$summary$pred, IntHL=IntHL$summary$pred , IntHP=IntHP$summary$pred)
+SOM.coef <- list(BaseL=BaseL$summary$coefficients, BaseP=BaseP$summary$coefficients, IntL=IntL$summary$coefficients, IntP=IntP$summary$coefficients, IntHL=IntHL$summary$coefficients ,IntHP=IntHP$summary$coefficients)
+
+SOM.pred <- lapply(SOM.pred, function(x) {names(x)<-c("ID", "longitude", "latitude","hdepth", "altitude","observed", "predicted","residual" ); return(x)})
+str(SOM.pred)
 
 #============================= Coefficients matrix ==========================================
 ll <- length(IntL$summary$coefficients)
@@ -212,7 +220,10 @@ IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FAL
 IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
+pH.pred <- list(BaseL=BaseL$summary$pred, BaseP=BaseP$summary$pred, IntL=IntL$summary$pred, IntP=IntP$summary$pred, IntHL=IntHL$summary$pred , IntHP=IntHP$summary$pred)
+pH.coef <- list(BaseL=BaseL$summary$coefficients, BaseP=BaseP$summary$coefficients, IntL=IntL$summary$coefficients, IntP=IntP$summary$coefficients, IntHL=IntHL$summary$coefficients ,IntHP=IntHP$summary$coefficients)
 
+pH.pred <- lapply(pH.pred, function(x) {names(x)<-c("ID", "longitude", "latitude","hdepth", "altitude","observed", "predicted","residual" ); return(x)})
 #============================= Coefficients matrix ==========================================
 ll <- length(IntL$summary$coefficients)
 pp <- length(IntHL$summary$coefficients[,1])+1
@@ -232,15 +243,15 @@ cmpH <- cmP.pH[,c(1,7:10)]
 #cmpH <- cmP.pH[,c(1,3:6)]
 #============================ As ====================
 
-bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
+#bor <- bor[-which(bor$ID %in% c(66,129,14,51,69,130,164,165,166)),]
 
 #========================= Creating Soil Profile Collections ====================================
-bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","SOM","pH","Co","As")]
-depths(bor.profs) <- ID ~ Top + Bottom
-site(bor.profs) <- ~ Soil.Type + x + y
-coordinates(bor.profs) <- ~ x+y
-proj4string(bor.profs) <- CRS(utm)
-bor.geo<-as.geosamples(bor.profs)
+#bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","SOM","pH","Co","As")]
+#depths(bor.profs) <- ID ~ Top + Bottom
+#site(bor.profs) <- ~ Soil.Type + x + y
+#coordinates(bor.profs) <- ~ x+y
+#proj4string(bor.profs) <- CRS(utm)
+#bor.geo<-as.geosamples(bor.profs)
 
 #=================== predint3D ====================================================
 fun <- As.fun
@@ -255,6 +266,10 @@ IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FAL
 IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
+As.pred <- list(BaseL=BaseL$summary$pred, BaseP=BaseP$summary$pred, IntL=IntL$summary$pred, IntP=IntP$summary$pred, IntHL=IntHL$summary$pred , IntHP=IntHP$summary$pred)
+As.coef <- list(BaseL=BaseL$summary$coefficients, BaseP=BaseP$summary$coefficients, IntL=IntL$summary$coefficients, IntP=IntP$summary$coefficients, IntHL=IntHL$summary$coefficients ,IntHP=IntHP$summary$coefficients)
+
+As.pred <- lapply(As.pred, function(x) {names(x)<-c("ID", "longitude", "latitude","hdepth", "altitude","observed", "predicted","residual" ); return(x)})
 
 #============================= Coefficients matrix ==========================================
 ll <- length(IntL$summary$coefficients)
@@ -309,6 +324,42 @@ effects <- coefs[1] + coefs[2]*altitude.s + coefs[3]*altitude.s^2 + coefs[4]*alt
 effects.data <-data.frame(altitude, var=effects)
 
 qplot(var,altitude, data = effects.data, geom = "line")
+
+#======================------ Changing coefficients table ============================================
+var.names <- as.character(intHCoefs$variable)
+var.names <- c(var.names[1:20],"CMca","CMdy","LPdy","RGdy","CMeu","LPeu","LPmo","VR","d","d2","d3")
+
+
+As01 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.1)+intHCoefs$As.ie2*(-0.1)+intHCoefs$As.ie3*(-0.1)
+As02 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.2)+intHCoefs$As.ie2*(-0.2)+intHCoefs$As.ie3*(-0.2)
+As03 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.3)+intHCoefs$As.ie2*(-0.3)+intHCoefs$As.ie3*(-0.3)
+
+As.depth.coef <- data.frame(cbind(As01,As02,As03))
+names(As.depth.coef) <- var.names
+
+SOM01 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.1)+intHCoefs$SOM.ie2*(-0.1)+intHCoefs$SOM.ie3*(-0.1)
+SOM02 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.2)+intHCoefs$SOM.ie2*(-0.2)+intHCoefs$SOM.ie3*(-0.2)
+SOM03 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.3)+intHCoefs$SOM.ie2*(-0.3)+intHCoefs$SOM.ie3*(-0.3)
+
+SOM.depth.coef <- data.frame(cbind(SOM01,SOM02,SOM03))
+names(SOM.depth.coef) <- var.names
+
+
+pH01 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.1)+intHCoefs$pH.ie2*(-0.1)+intHCoefs$pH.ie3*(-0.1)
+pH02 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.2)+intHCoefs$pH.ie2*(-0.2)+intHCoefs$pH.ie3*(-0.2)
+pH03 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.3)+intHCoefs$pH.ie2*(-0.3)+intHCoefs$pH.ie3*(-0.3)
+
+pH.depth.coef <- data.frame(cbind(pH01,pH02,pH03))
+names(pH.depth.coef) <- var.names
+
+depth.coef <- cbind(var.names,As.depth.coef,SOM.depth.coef,pH.depth.coef)
+
+stargazer(depth.coef[1:28,],summary=FALSE, digits=3, type="latex")
+
+
+#=====================================================================================================
+
+intHCoefs$As.ie2*(-0.2)
 
 #====================================================================================================
 #============================ Prediction Summary =============================================
@@ -389,50 +440,43 @@ zmax <- round(zmax)
 
 zmin <- round(zmin) 
 
-ramp <- seq(from = zmin, to = zmax, by = 0.2)
+ramp <- seq(from = zmin, to = zmax, by = 3)
 
-color.pal <- colorRampPalette(c("dark red","red","orange","yellow","light green","green","light blue","blue","dark blue"))
+color.pH <- colorRampPalette(c("dark red","red","orange","yellow","light green","green","light blue","blue","dark blue"))
 
-color.pal <- colorRampPalette(c("dark red","orange","light Yellow"))
-color.palr <- colorRampPalette(c("light yellow","orange","dark red"))
+color.SOM <- colorRampPalette(c("dark red","orange","light Yellow"))
+color.As <- colorRampPalette(c("light blue","yellow","orange","dark red"))
 #color.pal <- brewer.pal(8,name="YlOrRd")
 
 ckey <- list(labels=list(cex=2))
 
-p1 <- spplot(gridpix, "IntHP0.1", asp = 1, at = ramp, col.regions = color.pal,colorkey=FALSE)
-p2 <- spplot(gridpix, "IntHP0.2", asp = 1, at = ramp,  col.regions = color.pal,colorkey=FALSE)
-p3 <- spplot(gridpix, "IntHP0.3", asp = 1, at = ramp, col.regions = color.pal,colorkey=ckey)
-p3
+p1 <- spplot(gridpix, "IntHP0.1", asp = 1, at = ramp, col.regions = color.As,colorkey=FALSE)
+p2 <- spplot(gridpix, "IntHP0.2", asp = 1, at = ramp,  col.regions = color.As,colorkey=FALSE)
+p3 <- spplot(gridpix, "IntHP0.3", asp = 1, at = ramp, col.regions = color.As,colorkey=ckey)
+p1
 
-pdf("pHplot0.1.pdf",width=6,height=12)
+pdf("Asplot0.1.pdf",width=6,height=12)
 p1
 dev.off()
 
-pdf("pHplot0.2.pdf",width=6,height=12)
+pdf("Asplot0.2.pdf",width=6,height=12)
 p2
 dev.off()
 
 
-pdf("pHplot0.3.pdf",width=7,height=12)
+pdf("Asplot0.3.pdf",width=7,height=12)
 p3
 dev.off()
 
 
 #=========================== Profile plots ===================================================
 
-FFL.p <- BaseL$summary$pred
-FFP.p <- BaseP$summary$pred
-TFL.p <- IntL$summary$pred
-TFP.p <- IntP$summary$pred
-TTL.p <- IntHL$summary$pred
-TTP.p <- IntHP$summary$pred
-
-names(FFL.p)<-c("ID","x","y","hdepth","altitude","observed","predicted","residual")
-names(FFP.p)<-c("ID","x","y","hdepth","altitude","observed","predicted","residual")
-names(TFL.p)<-c("ID","x","y","hdepth","altitude","observed","predicted","residual")
-names(TFP.p)<-c("ID","x","y","hdepth","altitude","observed","predicted","residual")
-names(TTL.p)<-c("ID","x","y","hdepth","altitude","observed","predicted","residual")
-names(TTP.p)<-c("ID","x","y","hdepth","altitude","observed","predicted","residual")
+FFL.p <- SOM.pred$BaseL
+FFP.p <- SOM.pred$BaseP
+TFL.p <- SOM.pred$IntL
+TFP.p <- SOM.pred$IntP
+TTL.p <- SOM.pred$IntHP
+TTP.p <- SOM.pred$IntHP
 
 res.profs<-data.frame(ID=TFL.p$ID,BaseL=FFL.p$residual,BaseP=FFP.p$residual,IntL=TFL.p$residual,IntP=TFP.p$residual,IntHL=TTL.p$residual,IntHP=TTP.p$residual)
 
@@ -457,6 +501,7 @@ agg <- slab(res.profs, fm= ~ BaseL + BaseP + IntL + IntP + IntHL + IntHP,slab.st
 
 ## see ?slab for details on the default aggregate function
 head(agg)
+
 
 #agg$contributing_fraction <- do.call(c,c(alt.summary[,2:7]))
 
@@ -564,25 +609,140 @@ dev.off()
 
 #======================= Computin variogram ================================================
 
-v <- variogram(residual~1, data=TTL.p, locations=~x+y+altitude,cutoff=0.7,width=0.05)
-v
-plot(v)
+#======================= As ================================================================
 
-v.fit = fit.variogram(v, vgm(0.05, "Sph", 0.15, 0.001))
-plot(v, v.fit)
+coordnames(gridmaps.sm2D) <- c("longitude","latitude")
 
-TFL.pp <- ddply(TFL.p, .(ID),summarize,x=x[1],y=y[1],altitude=altitude[1],residual=residual[1])
-coordinates(TFL.pp) <- ~x+y
-proj4string(TFL.pp)<- CRS("+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m")
+pred <- As.pred
 
-bubble(TFL.pp,"residual")
-sv <- variogram(residual~1, data=TFL.pp,cutoff=4000,width=470)
+FFL.p <- pred$BaseL
+FFP.p <- pred$BaseP
+TFL.p <- pred$IntL
+TFP.p <- pred$IntP
+TTL.p <- pred$IntHP
+TTP.p <- pred$IntHP
+
+res.profs<-data.frame(ID=TFL.p$ID,BaseL=FFL.p$residual,BaseP=FFP.p$residual,IntL=TFL.p$residual,IntP=TFP.p$residual,IntHL=TTL.p$residual,IntHP=TTP.p$residual)
+
+borind<-ddply(bor,.(ID))
+
+borind<-borind[complete.cases(borind$As),] # Ovde treba zameniti...
+
+"%ni%" <- Negate("%in%")
+
+ind <- which(borind[,"ID"] %in% unique(res.profs$ID))
+
+res.profs <- cbind(res.profs, borind[ind,c("Top","Bottom","Soil.Type","x","y","altitude")])
+
+res.list<-list(sites=ddply(res.profs,.(ID),summarize,y=y[1],x=x[1],Soil.Type=Soil.Type[1]),horizons=res.profs[,c("ID","Top","Bottom","BaseL","BaseP","IntL","IntP","IntHL","IntHP")])
+res.profs<-join(res.list$sites,res.list$horizons, type="inner")
+
+res.profs.data<-res.profs
+
+depths(res.profs) <- ID ~ Top + Bottom
+site(res.profs) <- ~x+y
+coordinates(res.profs)<-~x+y
+proj4string(res.profs)<- CRS("+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m")
+
+
+res.data <- pred$IntHP
+
+spline.profs <- mpspline(res.profs, "IntHP",d = t(c(0,5,15,30,60,80)))
+
+spline.res <- spline.profs$var.1cm
+
+cm <- rep(1:80,dim(spline.res)[2])
+
+a <-ddply(res.data,.(ID),summarize ,longitude=longitude[1],latitude=latitude[1])
+
+b <- a[rep(seq_len(nrow(a)), each=80),]
+
+c <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
+
+c <- na.omit(c)
+
+vc <- variogram(residual~1, data=c, locations=~longitude+latitude+altitude,cutoff=60,width=4)
+vc
+plot(vc)
+
+vc.fit = fit.variogram(vc, vgm(250, "Wav", 30, 0)) #,fit.range=FALSE
+plot(vc, vc.fit)
+
+vc<-vc[vc$dist<0.15 & vc$gamma>quantile(vc$gamma,0.90),]
+vci<-(sort(table(c(data.frame(vc)[,6],data.frame(vc)[,7])),decreasing=TRUE))
+vcit<-as.numeric(dimnames(vci)[[1]])
+vcit
+
+
+res.pp <- ddply(res.data, .(ID),summarize,x=longitude[1],y=latitude[1],altitude=altitude[1],residual=residual[1],observed=observed[1])
+coordinates(res.pp) <- ~x+y+altitude
+proj4string(res.pp)<- CRS(gk_7)
+
+bubble(res.pp,"residual")
+sv <- variogram(residual~1, data=res.pp,cutoff=4000,width=480)
 sv
 plot(sv)
-sv.fit = fit.variogram(sv, vgm(0.2, "Sph", 700, 0.1)) #,fit.range=FALSE
+sv.fit = fit.variogram(sv, vgm(1200, "Sph", 2000, 5,anis=c(0,0,0,1,24.77778))) #,fit.range=FALSE
 plot(sv, sv.fit)
 
+#669/27=0.04035874
 
+vgr <- fit.vgmModel(residual~1, rmatrix=res.data, gridmaps.sm2D, cutoff=4000,width=480 ,anis=c(0,0,0,1,0.04035874),vgmFun = "Sph", dimensions="3D") #0.000112964
+plot(vgr$svgm,vgr$vgm)
+
+
+vgr.gsif <- fit.gstatModel(bor.geo,As.fun,gridmaps.sm2D, model=vgr$vgm, vgmFun = "Sph")
+plot(vgr.gsif)
+
+plot(variogram(residual~1, rmatrix=TFL), vgr$vgm)
+
+
+
+
+#======================================================================================================
+
+
+#s <- slice(res.profs, seq(10,30,10) ~ .,just.the.data=TRUE)
+s <- slice(res.profs, 30 ~ .)
+
+#s$s <- rep(1:3,dim(s)[1]/3)
+s<-s[-which(is.na(s$.pctMissing)),]
+sv <- variogram(IntHP~1, data=s,cutoff=4000,width=500)
+
+plot(sv)#,type="o",add=TRUE)
+sv.fit = fit.variogram(sv, vgm(1500, "Sph", 2000, 50)) #,fit.range=FALSE
+plot(sv, sv.fit)
+
+sv10<-sv
+sv10$id <- rep(1,dim(sv10)[1])
+sv20<-sv
+sv20$id <- rep(2,dim(sv20)[1])
+sv30<-sv
+sv30$id <- rep(3,dim(sv30)[1])
+
+
+sv.sve<-rbind(sv10[,c(1:3,6)],sv20[,c(1:3,6)],sv30[,c(1:3,6)])
+sv.sve$id <- factor(sv.sve$id)
+
+p1 <- ggplot(sv.sve, aes(x=dist, y=gamma, color=id)) + 
+  geom_line(aes(linetype=id), size=1) +
+  geom_point(aes(shape=id, size=0.01)) +
+  scale_linetype_manual(values = c(1,1,1,1)) +
+  scale_shape_manual(values=c(0,1,2,3)) + theme(legend.position="none")
+
+
+pdf("pHVariograms.pdf",width=5,height=5)
+p1 # Make plot
+dev.off()
+
+ddply(s,.(s), summarize, BaseP.m=sqrt(mean((BaseP,na.rm=TRUE)^2)), IntP.m=sd(IntP,na.rm=TRUE) ,IntHP.m=sd(IntHP,na.rm=TRUE))
+s<-s[-which(is.na(s$.pctMissing)),]
+
+bubble(s,"IntP")
+
+
+
+########################################################################################################
 TFL.pp <- TFL.pp[complete.cases(TFL.pp@data[,c("residual")]),]
 Bor.std<-Bor.std[,c("As1std","dmt","dwe","dwec","raspect","rsaspect","protection_index","we285R10000")]
 
@@ -613,14 +773,17 @@ dgmplot(TFL.pp,ind=vcit,attrdis="residual")
 
 dgmplot(std3,vcit,"gls.res")
 
-
+#############################################################################################################
 
 v.fit = fit.variogram(v, vgm(0.05, "Sph", 0.15, 0.001))
 plot(v, v.fit)
 
+res.geo <- as.geosamples(res.profs)
 
+vgr <- fit.vgmModel(residual~1, rmatrix=res.data, gridmaps.sm2D, anis=c(0,0,0,1,0.000112964),vgmFun = "Sph", dimensions="3D") #0.000112964
 
-vgr <- fit.vgmModel(residual~1, rmatrix=TFL.p, gridmaps.sm2D, anis=c(0,0,0,1,0.0007635)  , dimensions="3D")
+vgr.gsif <- fit.gstatModel(bor.geo,As.fun,gridmaps.sm2D, model=vgr$vgm, vgmFun = "Sph")
+plot(vgr.gsif)
 
 plot(variogram(residual~1, rmatrix=TFL), vgr$vgm)
 
