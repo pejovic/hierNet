@@ -17,6 +17,7 @@ library(magrittr)
 library(doParallel)
 library(foreach)
 library(stargazer)
+library(gstat)
 
 load("PredTables1452016.RData")
 
@@ -73,6 +74,18 @@ proj4string(bor.profs) <- CRS(utm)
 bor.geo<-as.geosamples(bor.profs)
 
 
+a<-mpspline(bor.profs,"SOM",vlow=1)
+str(a)
+ab<-ddply(bor.profs@horizons,.(ID), summarize, variation=var(SOM))
+singleValueProfile<-ab[is.na(ab$variation),"ID"]
+
+std<-cbind(a$idcol,a$var.std)
+names(std)[1]<-"ID"
+str(std)
+br.meas <- apply(std[,c(2:7)],2,function(x) sum(!is.na(x))) # zakljucak...nema dovoljno merenja za dubine preko 60cm
+
+stargazer(br.meas, summary=FALSE, type="latex")
+
 #====================== formulas ================================================================
 As.fun <- as.formula(paste("As ~", paste(c(CovAbb,"altitude"), collapse="+")))
 SOM.fun <- as.formula(paste("SOM ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"altitude"), collapse="+")))
@@ -95,7 +108,7 @@ fun <- As.fun
 #=================================== plot stratified fold ============================================
 rdat <- bor
 rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
-rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","SOM")]),c("ID","longitude","latitude","hdepth","altitude","SOM")] 
+rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","SOM")]),c("ID","longitude","latitude","hdepth","altitude","As")] 
 
 coordinates(rdat)<-~longitude+latitude
 proj4string(rdat) <- CRS(utm)
@@ -103,8 +116,10 @@ rdat <- spTransform(rdat, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs 
 rdat <- as.data.frame(rdat)
 head(rdat)
 
+rdat <- rdat[complete.cases(rdat$As),]
 
-rdat.folds <- stratfold3d(targetVar="SOM",regdat=rdat,folds=5,cent=3,seed=666,dimensions="3D",IDs=TRUE,sum=TRUE)
+
+rdat.folds <- stratfold3d(targetVar="As",regdat=rdat,folds=5,cent=3,seed=666,dimensions="3D",IDs=TRUE,sum=TRUE)
 plotfolds(rdat.folds,targetvar="SOM")
 
 pdf("SOMfolds.pdf",width=10,height=12)
@@ -311,43 +326,125 @@ stargazer(intHCoefs,summary=FALSE, digits=3, type="latex")
 
 #============================ Changing coefficients =================================================
 
-altitude <- data.frame(altitude=seq(-0.0,-0.6,-0.01))
+altitude <- data.frame(altitude=seq(-0.0,-0.40,-0.01))
 
 #altitude <- data.frame(altitude=c(-0.1,-0.3,-0.4))
-altitude.s <- as.numeric(predict(IntHP$summary$preProc$alt.par ,newdata=altitude)[,1])
+altitude.s <- as.numeric(predict(IntHP$summary$preProc$alt.par , newdata = altitude)[,1])
+variables <- c("CD","DD","DEM","Slope","VDistChNet","WEnw")#,"TWI")
+variables <- variables[order(variables)]
+
+#10.4895187  5.7506602 -0.4258973000
+#cmP.As[cmP.As$variable=="VDistChNet","IntHP.ie1"] <- 5.7506602
+
+coefs.IntHP <- (cmP.As[which(as.character(cmP.As$variable) %in% variables),c(1,7:10)])
+coefs.IntP <- (cmP.As[which(as.character(cmP.As$variable) %in% variables),c(1,3:6)])
+
+coefs.IntHP <- coefs.IntHP[order(coefs.IntHP$variable),]
+coefs.IntP <- coefs.IntP[order(coefs.IntP$variable),]
+
+coefs.IntHP <- coefs.IntHP[,-1]
+coefs.IntP <- coefs.IntP[,-1]
 
 
-coefs<-as.numeric(cmP.As[cmP.As$variable=="Slope",3:6])
+effects.IntHP <- as.numeric()
+for(i in 1:dim(coefs.IntHP)[1]){
+  effects <- coefs.IntHP[i,1] + coefs.IntHP[i,2]*altitude.s + coefs.IntHP[i,3]*altitude.s^2 + coefs.IntHP[i,4]*altitude.s^3
+  effects <- data.frame(depth = altitude[,1], var = effects)
+  effects.IntHP <- rbind(effects.IntHP, effects)
+}  
 
-effects <- coefs[1] + coefs[2]*altitude.s + coefs[3]*altitude.s^2 + coefs[4]*altitude.s^3
+effects.IntHP$Variables <- factor(rep(variables, each = length(altitude.s)))
+intHPlot <- qplot(var, depth, data = effects.IntHP, geom = c("point", "line"), color = Variables)+theme_bw()+theme(legend.text=element_text(size=12))+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+labs(x="Coefficients",y="Depth")
 
-effects.data <-data.frame(altitude, var=effects)
 
-qplot(var,altitude, data = effects.data, geom = "line")
+effects.IntP <- as.numeric()
+for(i in 1:dim(coefs.IntP)[1]){
+  effects <- coefs.IntP[i,1] + coefs.IntP[i,2]*altitude.s + coefs.IntP[i,3]*altitude.s^2 + coefs.IntP[i,4]*altitude.s^3
+  effects <- data.frame(depth = altitude[,1], var = effects)
+  effects.IntP <- rbind(effects.IntP, effects)
+}  
+
+effects.IntP$Variables <- factor(rep(variables, each = length(altitude.s)))
+intPlot <- qplot(var, depth, data = effects.IntP, geom = c("point", "line"), color = Variables)+theme_bw()+theme(legend.text=element_text(size=12))+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+labs(x="Coefficients",y="Depth")
+
+pdf("AsIntHPlot.pdf",width=8,height=10)
+intHPlot
+dev.off()
+
+pdf("AsIntPlot.pdf",width=8,height=10)
+intPlot
+dev.off()
+
+#============================== SOM coef path plot ==================================================
+altitude <- data.frame(altitude=seq(-0.0,-0.40,-0.01))
+
+altitude.s <- as.numeric(predict(IntHP$summary$preProc$alt.par , newdata = altitude)[,1])
+variables <- c("DEM","Slope","TWI","LongCurv","ChNetBLevel","WEnw")
+variables <- variables[order(variables)]
+
+coefs.IntHP <- (cmP.SOM[which(as.character(cmP.SOM$variable) %in% variables),c(1,7:10)])
+coefs.IntP <- (cmP.SOM[which(as.character(cmP.SOM$variable) %in% variables),c(1,3:6)])
+
+coefs.IntHP <- coefs.IntHP[order(coefs.IntHP$variable),]
+coefs.IntP <- coefs.IntP[order(coefs.IntP$variable),]
+
+coefs.IntHP <- coefs.IntHP[,-1]
+coefs.IntP <- coefs.IntP[,-1]
+
+
+effects.IntHP <- as.numeric()
+for(i in 1:dim(coefs.IntHP)[1]){
+  effects <- coefs.IntHP[i,1] + coefs.IntHP[i,2]*altitude.s + coefs.IntHP[i,3]*altitude.s^2 + coefs.IntHP[i,4]*altitude.s^3
+  effects <- data.frame(depth = altitude[,1], var = effects)
+  effects.IntHP <- rbind(effects.IntHP, effects)
+}  
+
+effects.IntHP$Variables <- factor(rep(variables, each = length(altitude.s)))
+intHPlot <- qplot(var, depth, data = effects.IntHP, geom = c("point", "line"), color = Variables)+theme_bw()+theme(legend.text=element_text(size=12))+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+labs(x="Coefficients",y="Depth")
+
+
+effects.IntP <- as.numeric()
+for(i in 1:dim(coefs.IntP)[1]){
+  effects <- coefs.IntP[i,1] + coefs.IntP[i,2]*altitude.s + coefs.IntP[i,3]*altitude.s^2 + coefs.IntP[i,4]*altitude.s^3
+  effects <- data.frame(depth = altitude[,1], var = effects)
+  effects.IntP <- rbind(effects.IntP, effects)
+}  
+
+effects.IntP$Variables <- factor(rep(variables, each = length(altitude.s)))
+intPlot <- qplot(var, depth, data = effects.IntP, geom = c("point", "line"), color = Variables)+theme_bw()+theme(legend.text=element_text(size=12))+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+labs(x="Coefficients",y="Depth")
+
+pdf("SOMIntHPlot.pdf",width=8,height=10)
+intHPlot
+dev.off()
+
+pdf("SOMIntPlot.pdf",width=8,height=10)
+intPlot
+dev.off()
+
 
 #======================------ Changing coefficients table ============================================
 var.names <- as.character(intHCoefs$variable)
 var.names <- c(var.names[1:20],"CMca","CMdy","LPdy","RGdy","CMeu","LPeu","LPmo","VR","d","d2","d3")
 
 
-As01 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.1)+intHCoefs$As.ie2*(-0.1)+intHCoefs$As.ie3*(-0.1)
-As02 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.2)+intHCoefs$As.ie2*(-0.2)+intHCoefs$As.ie3*(-0.2)
-As03 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.3)+intHCoefs$As.ie2*(-0.3)+intHCoefs$As.ie3*(-0.3)
+As01 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.1)+intHCoefs$As.ie2*(-0.1)^2+intHCoefs$As.ie3*(-0.1)^3
+As02 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.2)+intHCoefs$As.ie2*(-0.2)^2+intHCoefs$As.ie3*(-0.2)^3
+As03 <- intHCoefs$As.me+intHCoefs$As.ie1*(-0.3)+intHCoefs$As.ie2*(-0.3)^2+intHCoefs$As.ie3*(-0.3)^3
 
 As.depth.coef <- data.frame(cbind(As01,As02,As03))
 names(As.depth.coef) <- var.names
 
-SOM01 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.1)+intHCoefs$SOM.ie2*(-0.1)+intHCoefs$SOM.ie3*(-0.1)
-SOM02 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.2)+intHCoefs$SOM.ie2*(-0.2)+intHCoefs$SOM.ie3*(-0.2)
-SOM03 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.3)+intHCoefs$SOM.ie2*(-0.3)+intHCoefs$SOM.ie3*(-0.3)
+SOM01 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.1)+intHCoefs$SOM.ie2*(-0.1)^2+intHCoefs$SOM.ie3*(-0.1)^3
+SOM02 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.2)+intHCoefs$SOM.ie2*(-0.2)^2+intHCoefs$SOM.ie3*(-0.2)^3
+SOM03 <- intHCoefs$SOM.me+intHCoefs$SOM.ie1*(-0.3)+intHCoefs$SOM.ie2*(-0.3)^2+intHCoefs$SOM.ie3*(-0.3)^3
 
 SOM.depth.coef <- data.frame(cbind(SOM01,SOM02,SOM03))
 names(SOM.depth.coef) <- var.names
 
 
-pH01 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.1)+intHCoefs$pH.ie2*(-0.1)+intHCoefs$pH.ie3*(-0.1)
-pH02 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.2)+intHCoefs$pH.ie2*(-0.2)+intHCoefs$pH.ie3*(-0.2)
-pH03 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.3)+intHCoefs$pH.ie2*(-0.3)+intHCoefs$pH.ie3*(-0.3)
+pH01 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.1)+intHCoefs$pH.ie2*(-0.1)^2+intHCoefs$pH.ie3*(-0.1)^3
+pH02 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.2)+intHCoefs$pH.ie2*(-0.2)^2+intHCoefs$pH.ie3*(-0.2)^3
+pH03 <- intHCoefs$pH.me+intHCoefs$pH.ie1*(-0.3)+intHCoefs$pH.ie2*(-0.3)^2+intHCoefs$pH.ie3*(-0.3)^3
 
 pH.depth.coef <- data.frame(cbind(pH01,pH02,pH03))
 names(pH.depth.coef) <- var.names
@@ -379,6 +476,16 @@ lapply(summary.pred, function(x) {names(x)<-c("ID","x","y","hdepth","altitude","
 
 
 #============================ Prediction 0.2 =================================================
+fun <- As.fun
+
+BaseL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+BaseP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+IntL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
+system.time(IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1) ,depth.fun="poly",cores=8))
 
 prediction<-FFL$prediction[[1]][,"pred"]
 names(prediction)<-"FFL0.1"
@@ -648,7 +755,6 @@ proj4string(res.profs)<- CRS("+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0
 res.data <- pred$IntHP
 
 spline.profs <- mpspline(res.profs, "IntHP",d = t(c(0,5,15,30,60,80)))
-
 spline.res <- spline.profs$var.1cm
 
 cm <- rep(1:80,dim(spline.res)[2])
@@ -657,41 +763,98 @@ a <-ddply(res.data,.(ID),summarize ,longitude=longitude[1],latitude=latitude[1])
 
 b <- a[rep(seq_len(nrow(a)), each=80),]
 
-c <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
+bm <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
 
-c <- na.omit(c)
+bm <- na.omit(bm)
 
-vc <- variogram(residual~1, data=c, locations=~longitude+latitude+altitude,cutoff=60,width=4)
+vc <- variogram(residual~1, data=bm, locations=~longitude+latitude+altitude,cutoff=50,width=3)
 vc
 plot(vc)
 
-vc.fit = fit.variogram(vc, vgm(250, "Wav", 30, 0)) #,fit.range=FALSE
+#vc.fit = fit.variogram(vc, vgm(1.5, "Gau", 10, 0)) #As
+vc.fit = fit.variogram(vc, vgm(250, "Gau", 30, 5)) #As
 plot(vc, vc.fit)
-
-vc<-vc[vc$dist<0.15 & vc$gamma>quantile(vc$gamma,0.90),]
-vci<-(sort(table(c(data.frame(vc)[,6],data.frame(vc)[,7])),decreasing=TRUE))
-vcit<-as.numeric(dimnames(vci)[[1]])
-vcit
-
 
 res.pp <- ddply(res.data, .(ID),summarize,x=longitude[1],y=latitude[1],altitude=altitude[1],residual=residual[1],observed=observed[1])
 coordinates(res.pp) <- ~x+y+altitude
 proj4string(res.pp)<- CRS(gk_7)
 
 bubble(res.pp,"residual")
-sv <- variogram(residual~1, data=res.pp,cutoff=4000,width=480)
+sv <- variogram(residual~1, data=res.pp,cutoff=4000,width=480) # 420 za SOM
 sv
 plot(sv)
-sv.fit = fit.variogram(sv, vgm(1200, "Sph", 2000, 5,anis=c(0,0,0,1,24.77778))) #,fit.range=FALSE
+#sv.fit =  fit.variogram(sv, vgm(15, "Gau", 2000, 5)) #SOM
+sv.fit =  fit.variogram(sv, vgm(1200, "Sph", 2000, 300)) #As
+
 plot(sv, sv.fit)
 
-#669/27=0.04035874
-
-vgr <- fit.vgmModel(residual~1, rmatrix=res.data, gridmaps.sm2D, cutoff=4000,width=480 ,anis=c(0,0,0,1,0.04035874),vgmFun = "Sph", dimensions="3D") #0.000112964
+vgr <- fit.vgmModel(residual~1, rmatrix=res.data, gridmaps.sm2D, cutoff=4000,width=420 ,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2]),vgmFun = "Gau", dimensions="3D") #0.000112964  
 plot(vgr$svgm,vgr$vgm)
 
 
-vgr.gsif <- fit.gstatModel(bor.geo,As.fun,gridmaps.sm2D, model=vgr$vgm, vgmFun = "Sph")
+#=================================== plot stratified fold ============================================
+rdat <- bor
+rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
+rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","As")]),c("ID","longitude","latitude","hdepth","altitude","As")] 
+
+coordinates(rdat)<-~longitude+latitude
+proj4string(rdat) <- CRS(utm)
+rdat <- spTransform(rdat, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
+rdat <- as.data.frame(rdat)
+head(rdat)
+
+#rdat <- rdat[complete.cases(rdat$As),]
+
+
+rdat.folds <- stratfold3d(targetVar="As",regdat=rdat,folds=5,cent=3,seed=321,dimensions="3D",IDs=TRUE,sum=TRUE)
+plotfolds(rdat.folds,targetvar="As")
+
+rdat.folds$folds
+flist<-rdat.folds$folds
+
+folds.in.list <- as.list(rep(NA,length(flist)))
+names(folds.in.list) <- paste("fold",c(1:length(flist)),sep = "")
+foldid <- rep(NA,dim(res.data)[1])
+
+for(j in 1:length(flist)){
+  folds.in.list[[j]]<-which(res.data$ID %in% flist[[j]])
+  foldid[folds.in.list[[j]]]<-j
+}
+
+coordinates(res.data) <- ~ longitude + latitude + altitude
+
+proj4string(res.data) <- CRS(gk_7)
+
+vr.def <- variogram(residual~1,res.data, cutoff=4000,width=480)  # 420 za SOM
+#vgr.def <-fit.variogram(vr.def, vgm(15, "Gau", 2000, 5,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))
+vgr.def <-fit.variogram(vr.def, vgm(1200, "Sph", 2000, 100,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))  #za As
+
+plot(vr.def, vgr.def)
+res.pred <- krige.cv(residual ~ 1, res.data, model = vgr.def) #,nfold=foldid
+
+
+res.data@data$krige.res <- res.pred$var1.pred
+res.data@data$krige.pred <- res.data@data$predicted + res.data@data$krige.res
+
+#res.data <- res.data[complete.cases(res.data$krige.pred),]
+
+caret::R2(pred=res.data@data$krige.pred,obs=res.data@data$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=res.data@data$krige.pred,obs=res.data@data$observed)
+
+#====================================================================================================================
+
+
+As.gls.res.sk3@data
+
+vgr.gsif <- fit.gstatModel(hm.geo,residual~1,gridmaps.sm2D, model=vgr$vgm, vgmFun = "Exp")
+
+
+
+res.geo<-as.geosamples(res.profs)
+
+
+
+vgr.gsif <- fit.gstatModel(bor.geo,residual~1,gridmaps.sm2D, model=vgr$vgm, vgmFun = "Exp")
 plot(vgr.gsif)
 
 plot(variogram(residual~1, rmatrix=TFL), vgr$vgm)
@@ -703,7 +866,7 @@ plot(variogram(residual~1, rmatrix=TFL), vgr$vgm)
 
 
 #s <- slice(res.profs, seq(10,30,10) ~ .,just.the.data=TRUE)
-s <- slice(res.profs, 30 ~ .)
+s <- slice(res.profs, 15 ~ .)
 
 #s$s <- rep(1:3,dim(s)[1]/3)
 s<-s[-which(is.na(s$.pctMissing)),]
@@ -714,31 +877,38 @@ sv.fit = fit.variogram(sv, vgm(1500, "Sph", 2000, 50)) #,fit.range=FALSE
 plot(sv, sv.fit)
 
 sv10<-sv
-sv10$id <- rep(1,dim(sv10)[1])
+sv10$id <- rep("10 cm",dim(sv10)[1])
 sv20<-sv
-sv20$id <- rep(2,dim(sv20)[1])
+sv20$id <- rep("20 cm",dim(sv20)[1])
 sv30<-sv
-sv30$id <- rep(3,dim(sv30)[1])
+sv30$id <- rep("30 cm",dim(sv30)[1])
 
 
 sv.sve<-rbind(sv10[,c(1:3,6)],sv20[,c(1:3,6)],sv30[,c(1:3,6)])
-sv.sve$id <- factor(sv.sve$id)
+sv.sve$depth <- factor(sv.sve$id)
 
-p1 <- ggplot(sv.sve, aes(x=dist, y=gamma, color=id)) + 
-  geom_line(aes(linetype=id), size=1) +
-  geom_point(aes(shape=id, size=0.01)) +
-  scale_linetype_manual(values = c(1,1,1,1)) +
-  scale_shape_manual(values=c(0,1,2,3)) + theme(legend.position="none")
+As.sve <- sv.sve
+SOM.sve <- sv.sve
+pH.sve <- sv.sve
+
+As.vars <- qplot(dist, gamma, data = As.sve, geom = c("point", "line"), color = depth)+theme_bw()+theme(legend.text=element_text(size=12))+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+labs(x="Distance",y="Semivariance")
+SOM.vars <- qplot(dist, gamma, data = SOM.sve, geom = c("point", "line"), color = depth)+theme_bw()+theme(legend.text=element_text(size=12))+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+labs(x="Distance",y="Semivariance")
+pH.vars <- qplot(dist, gamma, data = pH.sve, geom = c("point", "line"), color = depth)+theme_bw()+theme(legend.text=element_text(size=12))+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+labs(x="Distance",y="Semivariance")
 
 
-pdf("pHVariograms.pdf",width=5,height=5)
-p1 # Make plot
+pdf("AsVariograms.pdf",width=5,height=5)
+As.vars # Make plot
 dev.off()
 
-ddply(s,.(s), summarize, BaseP.m=sqrt(mean((BaseP,na.rm=TRUE)^2)), IntP.m=sd(IntP,na.rm=TRUE) ,IntHP.m=sd(IntHP,na.rm=TRUE))
-s<-s[-which(is.na(s$.pctMissing)),]
+pdf("SOMVariograms.pdf",width=5,height=5)
+SOM.vars # Make plot
+dev.off()
 
-bubble(s,"IntP")
+pdf("pHVariograms.pdf",width=5,height=5)
+pH.vars # Make plot
+dev.off()
+
+
 
 
 
