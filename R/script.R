@@ -771,7 +771,6 @@ vc <- variogram(residual~1, data=bm, locations=~longitude+latitude+altitude,cuto
 vc
 plot(vc)
 
-#vc.fit = fit.variogram(vc, vgm(1.5, "Gau", 10, 0)) #As
 vc.fit = fit.variogram(vc, vgm(250, "Gau", 30, 5)) #As
 plot(vc, vc.fit)
 
@@ -780,19 +779,15 @@ coordinates(res.pp) <- ~x+y+altitude
 proj4string(res.pp)<- CRS(gk_7)
 
 bubble(res.pp,"residual")
-sv <- variogram(residual~1, data=res.pp,cutoff=4000,width=480) # 420 za SOM
+sv <- variogram(residual~1, data=res.pp,cutoff=4000,width=480) # 480 za As
 sv
 plot(sv)
-#sv.fit =  fit.variogram(sv, vgm(15, "Gau", 2000, 5)) #SOM
+
 sv.fit =  fit.variogram(sv, vgm(1200, "Sph", 2000, 300)) #As
 
 plot(sv, sv.fit)
 
-vgr <- fit.vgmModel(residual~1, rmatrix=res.data, gridmaps.sm2D, cutoff=4000,width=420 ,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2]),vgmFun = "Gau", dimensions="3D") #0.000112964  
-plot(vgr$svgm,vgr$vgm)
-
-
-#=================================== plot stratified fold ============================================
+#=================================== plot stratified fold =======================================================
 rdat <- bor
 rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
 rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","As")]),c("ID","longitude","latitude","hdepth","altitude","As")] 
@@ -821,13 +816,21 @@ for(j in 1:length(flist)){
   foldid[folds.in.list[[j]]]<-j
 }
 
+foldid
+#===============================================================================================================
+
+
+#================================= 3D Kriging ==================================================================
 coordinates(res.data) <- ~ longitude + latitude + altitude
 
 proj4string(res.data) <- CRS(gk_7)
 
-vr.def <- variogram(residual~1,res.data, cutoff=4000,width=480)  # 420 za SOM
-#vgr.def <-fit.variogram(vr.def, vgm(15, "Gau", 2000, 5,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))
+vr.def <- variogram(residual~1,res.data, cutoff=4000,width=480)  # 420 za As
+plot(vr.def)
+
 vgr.def <-fit.variogram(vr.def, vgm(1200, "Sph", 2000, 100,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))  #za As
+
+vr.line <- (variogramLine(vgr.def, maxdist = max(vr.def$dist)))
 
 plot(vr.def, vgr.def)
 res.pred <- krige.cv(residual ~ 1, res.data, model = vgr.def) #,nfold=foldid
@@ -842,8 +845,447 @@ caret::R2(pred=res.data@data$krige.pred,obs=res.data@data$observed, formula="tra
 RMSE(pred=res.data@data$krige.pred,obs=res.data@data$observed)
 
 #====================================================================================================================
+#================================== Raw 3D kriging ==================================================================
+
+vr.obs <- variogram(observed~1,res.data, cutoff=4000,width=480)
 
 
+vgr.obs <-fit.variogram(vr.obs, vgm(1200, "Exp", 2000, 100,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))  #za As
+
+vr.line.obs <- (variogramLine(vgr.obs, maxdist = max(vr.obs$dist)))
+plot(vr.obs, vgr.obs)
+
+obs.pred <- krige.cv(observed ~ 1, res.data, model = vgr.obs) #,nfold=foldid
+
+
+caret::R2(pred=obs.pred$var1.pred,obs=res.data@data$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=obs.pred$var1.pred,obs=res.data@data$observed)
+
+#================================= As results ======================================================================
+
+As.reg.results <- defaultSummary(data.frame(pred=res.data@data$predicted,obs=res.data@data$observed))
+As.raw.results <- defaultSummary(data.frame(pred=obs.pred$var1.pred,obs=res.data@data$observed))
+As.rk.results <- defaultSummary(data.frame(pred=res.data@data$krige.pred,obs=res.data@data$observed))
+
+
+#================================== Variogram plot ==================================================================
+
+addlinetoplot <- function(dataset, varx, vary,color="#000000",sajz=0.7) { 
+  list(
+    geom_line(data=dataset, aes_string(x=varx, y=vary), colour=color,size=sajz)
+  )
+}
+
+addpointtoplot <- function(dataset, varx, vary, size=3, color="#CC0000") { 
+  list(
+    geom_point(data=dataset, aes_string(x=varx, y=vary))
+  )
+}
+
+vr <- rbind(vr.obs,vr.def)
+vr$id <- c(rep("var1",dim(vr.obs)[1]),rep("var2",dim(vr.def)[1]))
+
+
+var.plot <- qplot(dist, gamma, data = vr, geom = c("point"),color=id)+theme_bw() + 
+  theme(legend.position="none")+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+
+  labs(x="Distance",y="Semivariance") + addlinetoplot(vr.line, varx = "dist", vary = "gamma",color="#56B4E9",sajz=0.65) + 
+  addlinetoplot(vr.line.obs, varx = "dist", vary = "gamma",color="#CC0000",sajz=0.65) + addpointtoplot(vr.obs, varx = "dist", vary = "gamma")
+
+var.plot
+
+
+pdf("AsVariograms.pdf",width=8,height=8)
+var.plot # Make plot
+dev.off()
+
+#====================================================================================================================
+#====================================================================================================================
+#=============================== 3D KRIGING =========================================================================
+#====================================================================================================================
+#================================== SOM =============================================================================
+
+coordnames(gridmaps.sm2D) <- c("longitude","latitude")
+
+pred <- SOM.pred
+
+FFL.p <- pred$BaseL
+FFP.p <- pred$BaseP
+TFL.p <- pred$IntL
+TFP.p <- pred$IntP
+TTL.p <- pred$IntHP
+TTP.p <- pred$IntHP
+
+res.profs<-data.frame(ID=TFL.p$ID,BaseL=FFL.p$residual,BaseP=FFP.p$residual,IntL=TFL.p$residual,IntP=TFP.p$residual,IntHL=TTL.p$residual,IntHP=TTP.p$residual)
+
+borind<-ddply(bor,.(ID))
+
+borind<-borind[complete.cases(borind$SOM),] # Ovde treba zameniti...
+
+"%ni%" <- Negate("%in%")
+
+ind <- which(borind[,"ID"] %in% unique(res.profs$ID))
+
+res.profs <- cbind(res.profs, borind[ind,c("Top","Bottom","Soil.Type","x","y","altitude")])
+
+res.list<-list(sites=ddply(res.profs,.(ID),summarize,y=y[1],x=x[1],Soil.Type=Soil.Type[1]),horizons=res.profs[,c("ID","Top","Bottom","BaseL","BaseP","IntL","IntP","IntHL","IntHP")])
+res.profs<-join(res.list$sites,res.list$horizons, type="inner")
+
+res.profs.data<-res.profs
+
+depths(res.profs) <- ID ~ Top + Bottom
+site(res.profs) <- ~x+y
+coordinates(res.profs)<-~x+y
+proj4string(res.profs)<- CRS("+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m")
+
+
+res.data <- pred$IntHP
+
+spline.profs <- mpspline(res.profs, "IntHP",d = t(c(0,5,15,30,60,80)))
+spline.res <- spline.profs$var.1cm
+
+cm <- rep(1:80,dim(spline.res)[2])
+
+a <-ddply(res.data,.(ID),summarize ,longitude=longitude[1],latitude=latitude[1])
+
+b <- a[rep(seq_len(nrow(a)), each=80),]
+
+bm <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
+
+bm <- na.omit(bm)
+
+vc <- variogram(residual~1, data=bm, locations=~longitude+latitude+altitude,cutoff=50,width=3)
+vc
+plot(vc)
+
+
+vc.fit = fit.variogram(vc, vgm(1.5, "Gau", 10, 0)) #SOM
+
+plot(vc, vc.fit)
+
+res.pp <- ddply(res.data, .(ID),summarize,x=longitude[1],y=latitude[1],altitude=altitude[1],residual=residual[1],observed=observed[1])
+coordinates(res.pp) <- ~x+y+altitude
+proj4string(res.pp)<- CRS(gk_7)
+
+bubble(res.pp,"residual")
+sv <- variogram(residual~1, data=res.pp,cutoff=4000,width=420) 
+sv
+plot(sv)
+
+sv.fit =  fit.variogram(sv, vgm(15, "Sph", 2000, 5)) #SOM
+
+plot(sv, sv.fit)
+
+#=================================== plot stratified fold =======================================================
+rdat <- bor
+rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
+rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","SOM")]),c("ID","longitude","latitude","hdepth","altitude","SOM")] 
+
+coordinates(rdat)<-~longitude+latitude
+proj4string(rdat) <- CRS(utm)
+rdat <- spTransform(rdat, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
+rdat <- as.data.frame(rdat)
+head(rdat)
+
+#rdat <- rdat[complete.cases(rdat$SOM),]
+
+
+rdat.folds <- stratfold3d(targetVar="SOM",regdat=rdat,folds=5,cent=3,seed=321,dimensions="3D",IDs=TRUE,sum=TRUE)
+plotfolds(rdat.folds,targetvar="SOM")
+
+rdat.folds$folds
+flist<-rdat.folds$folds
+
+folds.in.list <- as.list(rep(NA,length(flist)))
+names(folds.in.list) <- paste("fold",c(1:length(flist)),sep = "")
+foldid <- rep(NA,dim(res.data)[1])
+
+for(j in 1:length(flist)){
+  folds.in.list[[j]]<-which(res.data$ID %in% flist[[j]])
+  foldid[folds.in.list[[j]]]<-j
+}
+
+foldid
+#===============================================================================================================
+
+
+#================================= 3D Kriging ==================================================================
+coordinates(res.data) <- ~ longitude + latitude + altitude
+
+proj4string(res.data) <- CRS(gk_7)
+
+vr.def <- variogram(residual~1,res.data, cutoff=4000,width=420)
+plot(vr.def)
+vgr.def <-fit.variogram(vr.def, vgm(15, "Sph", 2000, 5,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))
+
+vr.line <- (variogramLine(vgr.def, maxdist = max(vr.def$dist)))
+
+plot(vr.def, vgr.def)
+
+res.pred <- krige.cv(residual ~ 1, res.data, model = vgr.def) #,nfold=foldid
+
+
+res.data@data$krige.res <- res.pred$var1.pred
+res.data@data$krige.pred <- res.data@data$predicted + res.data@data$krige.res
+
+#res.data <- res.data[complete.cases(res.data$krige.pred),]
+
+caret::R2(pred=res.data@data$krige.pred,obs=res.data@data$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=res.data@data$krige.pred,obs=res.data@data$observed)
+
+#====================================================================================================================
+#================================== Raw 3D kriging ==================================================================
+
+vr.obs <- variogram(observed~1,res.data, cutoff=4000,width=420)
+
+vgr.obs <-fit.variogram(vr.obs, vgm(15, "Gau", 2000, 5,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))
+
+vr.line.obs <- (variogramLine(vgr.obs, maxdist = max(vr.obs$dist)))
+plot(vr.obs, vgr.obs)
+
+obs.pred <- krige.cv(observed ~ 1, res.data, model = vgr.obs) #,nfold=foldid
+
+
+caret::R2(pred=obs.pred$var1.pred,obs=res.data@data$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=obs.pred$var1.pred,obs=res.data@data$observed)
+
+#================================= pH results ======================================================================
+
+SOM.reg.results <- defaultSummary(data.frame(pred=res.data@data$predicted,obs=res.data@data$observed))
+SOM.raw.results <- defaultSummary(data.frame(pred=obs.pred$var1.pred,obs=res.data@data$observed))
+SOM.rk.results <- defaultSummary(data.frame(pred=res.data@data$krige.pred,obs=res.data@data$observed))
+
+#================================== Variogram plot ==================================================================
+
+addlinetoplot <- function(dataset, varx, vary,color="#000000",sajz=0.7) { 
+  list(
+    geom_line(data=dataset, aes_string(x=varx, y=vary), colour=color,size=sajz)
+  )
+}
+
+addpointtoplot <- function(dataset, varx, vary, size=3, color="#CC0000") { 
+  list(
+    geom_point(data=dataset, aes_string(x=varx, y=vary))
+  )
+}
+
+vr <- rbind(vr.obs,vr.def)
+vr$id <- c(rep("var1",dim(vr.obs)[1]),rep("var2",dim(vr.def)[1]))
+
+
+var.plot <- qplot(dist, gamma, data = vr, geom = c("point"),color=id)+theme_bw() + 
+  theme(legend.position="none")+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+
+  labs(x="Distance",y="Semivariance") + addlinetoplot(vr.line, varx = "dist", vary = "gamma",color="#56B4E9",sajz=0.65) + 
+  addlinetoplot(vr.line.obs, varx = "dist", vary = "gamma",color="#CC0000",sajz=0.65) + addpointtoplot(vr.obs, varx = "dist", vary = "gamma")
+
+var.plot
+
+
+pdf("SOMVariograms.pdf",width=8,height=8)
+var.plot # Make plot
+dev.off()
+
+#====================================================================================================================
+
+
+
+#====================================================================================================================
+#====================================================================================================================
+#=============================== 3D KRIGING =========================================================================
+#====================================================================================================================
+#================================== pH =============================================================================
+
+coordnames(gridmaps.sm2D) <- c("longitude","latitude")
+
+pred <- pH.pred
+
+FFL.p <- pred$BaseL
+FFP.p <- pred$BaseP
+TFL.p <- pred$IntL
+TFP.p <- pred$IntP
+TTL.p <- pred$IntHP
+TTP.p <- pred$IntHP
+
+res.profs<-data.frame(ID=TFL.p$ID,BaseL=FFL.p$residual,BaseP=FFP.p$residual,IntL=TFL.p$residual,IntP=TFP.p$residual,IntHL=TTL.p$residual,IntHP=TTP.p$residual)
+
+borind<-ddply(bor,.(ID))
+
+borind<-borind[complete.cases(borind$pH),] # Ovde treba zameniti...
+
+"%ni%" <- Negate("%in%")
+
+ind <- which(borind[,"ID"] %in% unique(res.profs$ID))
+
+res.profs <- cbind(res.profs, borind[ind,c("Top","Bottom","Soil.Type","x","y","altitude")])
+
+res.list<-list(sites=ddply(res.profs,.(ID),summarize,y=y[1],x=x[1],Soil.Type=Soil.Type[1]),horizons=res.profs[,c("ID","Top","Bottom","BaseL","BaseP","IntL","IntP","IntHL","IntHP")])
+res.profs<-join(res.list$sites,res.list$horizons, type="inner")
+
+res.profs.data<-res.profs
+
+depths(res.profs) <- ID ~ Top + Bottom
+site(res.profs) <- ~x+y
+coordinates(res.profs)<-~x+y
+proj4string(res.profs)<- CRS("+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m")
+
+
+res.data <- pred$IntHP
+
+spline.profs <- mpspline(res.profs, "IntHP",d = t(c(0,5,15,30,60,80)))
+spline.res <- spline.profs$var.1cm
+
+cm <- rep(1:80,dim(spline.res)[2])
+
+a <-ddply(res.data,.(ID),summarize ,longitude=longitude[1],latitude=latitude[1])
+
+b <- a[rep(seq_len(nrow(a)), each=80),]
+
+bm <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
+
+bm <- na.omit(bm)
+
+vc <- variogram(residual~1, data=bm, locations=~longitude+latitude+altitude,cutoff=50,width=3)
+vc
+plot(vc)
+
+vc.fit = fit.variogram(vc, vgm(0.05, "Gau", 20, 0)) #pH
+
+plot(vc, vc.fit)
+
+res.pp <- ddply(res.data, .(ID),summarize,x=longitude[1],y=latitude[1],altitude=altitude[1],residual=residual[1],observed=observed[1])
+coordinates(res.pp) <- ~x+y
+proj4string(res.pp)<- CRS(gk_7)
+
+#bubble(res.pp,"residual")
+sv <- variogram(residual~1, data=res.pp,cutoff=4000,width=620)
+sv
+plot(sv)
+
+sv.fit =  fit.variogram(sv, vgm(0.3, "Sph", 1000, 0.1)) #pH
+
+plot(sv, sv.fit)
+
+#=================================== plot stratified fold =======================================================
+rdat <- bor
+rdat <- plyr::rename(rdat, replace=c("x" = "longitude", "y" = "latitude"))
+rdat <- rdat[complete.cases(rdat[,c("ID","longitude","latitude","altitude","pH")]),c("ID","longitude","latitude","hdepth","altitude","pH")] 
+
+coordinates(rdat)<-~longitude+latitude
+proj4string(rdat) <- CRS(utm)
+rdat <- spTransform(rdat, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs +towgs84=0,0,0"))
+rdat <- as.data.frame(rdat)
+head(rdat)
+
+#rdat <- rdat[complete.cases(rdat$pH),]
+
+
+rdat.folds <- stratfold3d(targetVar="pH",regdat=rdat,folds=5,cent=3,seed=321,dimensions="3D",IDs=TRUE,sum=TRUE)
+plotfolds(rdat.folds,targetvar="pH")
+
+rdat.folds$folds
+flist<-rdat.folds$folds
+
+folds.in.list <- as.list(rep(NA,length(flist)))
+names(folds.in.list) <- paste("fold",c(1:length(flist)),sep = "")
+foldid <- rep(NA,dim(res.data)[1])
+
+for(j in 1:length(flist)){
+  folds.in.list[[j]]<-which(res.data$ID %in% flist[[j]])
+  foldid[folds.in.list[[j]]]<-j
+}
+
+foldid
+#===============================================================================================================
+
+
+#================================= 3D Kriging ==================================================================
+coordinates(res.data) <- ~ longitude + latitude + altitude
+
+proj4string(res.data) <- CRS(gk_7)
+
+vr.def <- variogram(residual~1,res.data, cutoff=4000,width=650)
+plot(vr.def)
+
+vgr.def <-fit.variogram(vr.def, vgm(0.3, "Sph", 2000, 0.05,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))
+
+vr.line <- (variogramLine(vgr.def, maxdist = max(vr.def$dist)))
+
+plot(vr.def, vgr.def)
+res.pred <- krige.cv(residual ~ 1, res.data, model = vgr.def) #,nfold=foldid
+
+
+res.data@data$krige.res <- res.pred$var1.pred
+res.data@data$krige.pred <- res.data@data$predicted + res.data@data$krige.res
+
+#res.data <- res.data[complete.cases(res.data$krige.pred),]
+
+caret::R2(pred=res.data@data$krige.pred,obs=res.data@data$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=res.data@data$krige.pred,obs=res.data@data$observed)
+
+#====================================================================================================================
+#================================== Raw 3D kriging ==================================================================
+
+vr.obs <- variogram(observed~1,res.data, cutoff=4000,width=650)
+
+vgr.obs <-fit.variogram(vr.obs, vgm(0.3, "Sph", 2000, 0.05,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))
+
+vr.line.obs <- (variogramLine(vgr.obs, maxdist = max(vr.obs$dist)))
+plot(vr.obs, vgr.obs)
+
+obs.pred <- krige.cv(observed ~ 1, res.data, model = vgr.obs) #,nfold=foldid
+
+caret::R2(pred=obs.pred$var1.pred,obs=res.data@data$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=obs.pred$var1.pred,obs=res.data@data$observed)
+
+#================================= pH results ======================================================================
+
+pH.reg.results <- defaultSummary(data.frame(pred=res.data@data$predicted,obs=res.data@data$observed))
+pH.raw.results <- defaultSummary(data.frame(pred=obs.pred$var1.pred,obs=res.data@data$observed))
+pH.rk.results <- defaultSummary(data.frame(pred=res.data@data$krige.pred,obs=res.data@data$observed))
+
+
+#================================== Variogram plot ==================================================================
+
+addlinetoplot <- function(dataset, varx, vary,color="#000000",sajz=0.7) { 
+  list(
+    geom_line(data=dataset, aes_string(x=varx, y=vary), colour=color,size=sajz)
+  )
+}
+
+addpointtoplot <- function(dataset, varx, vary, size=3, color="#CC0000") { 
+  list(
+    geom_point(data=dataset, aes_string(x=varx, y=vary))
+  )
+}
+
+vr <- rbind(vr.obs,vr.def)
+vr$id <- c(rep("var1",dim(vr.obs)[1]),rep("var2",dim(vr.def)[1]))
+
+
+var.plot <- qplot(dist, gamma, data = vr, geom = c("point"),color=id)+theme_bw() + 
+  theme(legend.position="none")+theme(axis.text=element_text(size=12),axis.title=element_text(size=14,face="bold"))+
+  labs(x="Distance",y="Semivariance") + addlinetoplot(vr.line, varx = "dist", vary = "gamma",color="#56B4E9",sajz=0.65) + 
+  addlinetoplot(vr.line.obs, varx = "dist", vary = "gamma",color="#CC0000",sajz=0.65) + addpointtoplot(vr.obs, varx = "dist", vary = "gamma")
+
+var.plot
+
+
+pdf("pHVariograms.pdf",width=8,height=8)
+var.plot # Make plot
+dev.off()
+
+#====================================================================================================================
+
+As.results <- rbind(As.reg.results,As.raw.results,As.rk.results)
+SOM.results <- rbind(SOM.reg.results,SOM.raw.results,SOM.rk.results)
+pH.results <- rbind(pH.reg.results,pH.raw.results,pH.rk.results)
+
+results <- cbind(As.results,SOM.results,pH.results)
+rownames(results) <- c("lasso","3D OK", "3D RK")
+
+stargazer(results,summary=FALSE,digits=2,type="latex")
+
+
+#====================================================================================================================
 As.gls.res.sk3@data
 
 vgr.gsif <- fit.gstatModel(hm.geo,residual~1,gridmaps.sm2D, model=vgr$vgm, vgmFun = "Exp")
