@@ -98,7 +98,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
                            }
     
     nzv.par<-preProcess(modmat,method=c("nzv"))
-    #modmat<-as.data.frame(predict(nzv.par,modmat))
+    modmat<-as.data.frame(predict(nzv.par,modmat))
     
     names(modmat)<-gsub( "\\_|/|\\-|\"|\\s" , "." , names(modmat) )
 
@@ -143,6 +143,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
   
   regmat.def <- as.data.frame(cbind(regmat[, tv],modmat))
   names(regmat.def) <- c(tv, names(regmat.def[-1]))
+  tv.min <- min(regmat.def[,1])
 #=====================================================================================================
 
   if(!hier){
@@ -184,6 +185,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
       
       lasso.mod <- cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
       lasso.pred <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
+      lasso.pred <- pmax(lasso.pred,tv.min/3)
       obs.pred <- data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred))
       coef.list[[i]] <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
       dfresults <- data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred)[1],Rsquared=defaultSummary(obs.pred)[2])
@@ -193,7 +195,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     
     results[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred)[1],Rsquared=defaultSummary(pred)[2])
     coef.mat <- do.call(cbind,coef.list)
-    out <- list(measure=results,coef=coef.mat)
+    out <- list(measure=results,coef=coef.mat,obs.pred.df = pred)
     return(out)
     
   } else {
@@ -204,10 +206,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     
     strat<-stratfold3d(targetVar=tv,seed=123,regdat=allData,folds=fold,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
     flist<-strat$folds
-    
-    allData <- cbind(regmat.def,X, regmat[,c(pr.names[1], sp.names,"hdepth")])
-    allData <- plyr::rename(allData, replace=c("x" = "longitude", "y" = "latitude"))
-    
+
     results <- data.frame(lambda = rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
     coef.list = as.list(rep(NA,length(strat)))
     pred <- data.frame()
@@ -240,11 +239,11 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
       trainy <- (TrainData[,tv])
       testy <- (TestData[,tv])
       
-      fit = hierNet.path(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,trace=0,flmin=20)
+      fit = hierNet.path(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,trace=0)
       fitcv = hierNet.cv(fit, trainx, trainy, folds=folds.in.list, trace=0)
       fit.def <- hierNet(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,lam=fit$lamlist[which(fitcv$lamhat==fit$lamlist)])
       fit.pred <- predict(fit.def,newx=testx,newzz = testzz)
-      
+      fit.pred <- pmax(fit.pred,tv.min/3)
       ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(colnames(modmat))])
       me<-fit$bp[,which(fitcv$lamhat==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat==fit$lamlist), drop = F]
       rbind(ie,me)
@@ -257,7 +256,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     }
     results[length(flist)+1,]<-c(NA,RMSE=defaultSummary(pred)[1],Rsquared=defaultSummary(pred)[2])
     coef.mat<-do.call(cbind,coef.list)
-    out<-list(measure=results,coef=coef.mat)
+    out<-list(measure=results,coef=coef.mat,obs.pred.df = pred)
     return(out)
   }
   
