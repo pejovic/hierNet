@@ -143,7 +143,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
   
   regmat.def <- as.data.frame(cbind(regmat[, tv],modmat))
   names(regmat.def) <- c(tv, names(regmat.def[-1]))
-  
+  min.obs <- min(regmat.def[,1])
   #=====================================================================================================
   
   
@@ -172,7 +172,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     
     lasso.mod <- cv.glmnet(as.matrix(allData[,-1]),allData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
     lasso.pred <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(allData[,-1]))
-    lasso.pred <- pmax(lasso.pred,0.5)
+    lasso.pred <- pmax(lasso.pred,min.obs/3)
     cvm <- sqrt(lasso.mod$cvm[which(lasso.mod$lambda==lasso.mod$lambda.min)])
     obs.pred <- data.frame(obs=allData[,1],pred=as.numeric(lasso.pred))
     coef.list <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
@@ -199,7 +199,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
       
       #lasso.mod <- cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
       lasso.pred.cv <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
-      lasso.pred.cv <- pmax(lasso.pred.cv,0.5)
+      lasso.pred.cv <- pmax(lasso.pred.cv,min.obs/3)
       obs.pred.cv <- data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred.cv))
       coef.list.cv[[i]] <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
       dfresults.cv <- data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred.cv)[1],Rsquared=defaultSummary(obs.pred.cv)[2])
@@ -247,7 +247,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     fitcv = hierNet.cv(fit, allx, ally, folds=folds.in.list, trace=0)
     fit.def <- hierNet(allx,ally, zz = allzz,diagonal=FALSE,strong=TRUE,lam=fit$lamlist[which(fitcv$lamhat==fit$lamlist)])
     fit.pred <- predict(fit.def,newx=allx,newzz = allzz)
-    fit.pred <- pmax(fit.pred,0.5)
+    fit.pred <- pmax(fit.pred,min.obs/3)
     
     if(depth.fun =="linear"){ ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(colnames(modmat))]) 
     } else {
@@ -287,7 +287,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
       testy <- (TestData[,tv])
       
       fit.pred.cv <- predict(fit.def,newx=testx,newzz = testzz)
-      fit.pred.cv <- pmax(fit.pred.cv,0.5)
+      fit.pred.cv <- pmax(fit.pred.cv,min.obs/3)
       obs.pred.cv <- data.frame(obs=testy,pred=fit.pred.cv)
       dfresults.cv<-data.frame(lambda=fitcv$lamhat,RMSE=defaultSummary(obs.pred.cv)[1],Rsquared=defaultSummary(obs.pred.cv)[2])
       results.cv[i,]<-dfresults.cv
@@ -366,7 +366,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     
         for(i in 1:length(new3D)){
           new3D[[i]]$pred <- as.numeric(lapply(XX, function(x) predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(x)))[[i]])
-          new3D[[i]]$pred <- pmax(new3D[[i]]$pred,0.5)
+          new3D[[i]]$pred <- pmax(new3D[[i]]$pred,min.obs/3)
           }
     
     } else {
@@ -377,7 +377,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
         allZZ <- as.matrix(ZZ[[i]][,colnames(X)])
         
         new3D[[i]]$pred <- as.numeric(predict(fit.def,newx=allXX,newzz = allZZ))
-        new3D[[i]]$pred <- pmax(new3D[[i]]$pred,0.5)
+        new3D[[i]]$pred <- pmax(new3D[[i]]$pred,min.obs/3)
         }
 
       }

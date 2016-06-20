@@ -153,10 +153,13 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     
     strat<-stratfold3d(targetVar=tv,seed=seed,regdat=allData,folds=fold,cent=cent,preProc=FALSE,dimensions="2D",IDs=TRUE,sum=TRUE)
     flist<-strat$folds
+    cv.folds<-stratfold3d(targetVar=tv,seed=seed,regdat=allData,folds=fold,cent=cent,preProc=FALSE,dimensions="2D",IDs=FALSE,sum=TRUE)$folds
     
     results <- data.frame(lambda = rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
-    coef.list = as.list(rep(NA,length(strat)))
+    coef.list = as.list(rep(NA,length(flist)))
     pred <- data.frame()
+    train.results <- as.list(rep(NA,length(flist)))
+    test.results <- as.list(rep(NA,length(flist)))
     
     for(i in 1:length(flist)){
       ind <- which(allData$ID %in% do.call(c,flist[-i]))
@@ -186,6 +189,16 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
       lasso.mod <- cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
       lasso.pred <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
       lasso.pred <- pmax(lasso.pred,tv.min/3)
+      
+      train.pred <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TrainData[,-1]))
+      train.pred <- pmax(train.pred,tv.min/3)
+      train.pred <- data.frame(predicted=as.numeric(train.pred))
+      train.res <- data.frame(ID=allData[ind,"ID"], observed=TrainData[,1], predicted=train.pred,longitude=allData[ind,"longitude"],latitude=allData[ind,"latitude"],altitude=regmat[ind,"altitude"])
+      train.results[[i]] <- train.res
+      
+      test.res <- data.frame(ID=allData[-ind,"ID"], observed=TestData[,1],predicted=as.numeric(lasso.pred),longitude=allData[-ind,"longitude"],latitude=allData[-ind,"latitude"],altitude=regmat[-ind,"altitude"])
+      test.results[[i]] <- test.res
+      
       obs.pred <- data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred))
       coef.list[[i]] <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
       dfresults <- data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred)[1],Rsquared=defaultSummary(obs.pred)[2])
@@ -195,7 +208,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     
     results[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred)[1],Rsquared=defaultSummary(pred)[2])
     coef.mat <- do.call(cbind,coef.list)
-    out <- list(measure=results,coef=coef.mat,obs.pred.df = pred)
+    out <- list(measure=results,coef=coef.mat,obs.pred.df = pred,folds=cv.folds,train.results=train.results,test.results = test.results)
     return(out)
     
   } else {
@@ -206,10 +219,13 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     
     strat<-stratfold3d(targetVar=tv,seed=123,regdat=allData,folds=fold,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
     flist<-strat$folds
-
+    cv.folds<-stratfold3d(targetVar=tv,seed=seed,regdat=allData,folds=fold,cent=cent,preProc=FALSE,dimensions="2D",IDs=FALSE,sum=TRUE)$folds
+    
     results <- data.frame(lambda = rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
-    coef.list = as.list(rep(NA,length(strat)))
+    coef.list = as.list(rep(NA,length(flist)))
     pred <- data.frame()
+    train.results <- as.list(rep(NA,length(flist)))
+    test.results <- as.list(rep(NA,length(flist)))
     
 
     for(i in 1:length(flist)){
@@ -248,6 +264,15 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
       me<-fit$bp[,which(fitcv$lamhat==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat==fit$lamlist), drop = F]
       rbind(ie,me)
       
+      train.pred <- predict(fit.def,newx=trainx,newzz = trainzz)
+      train.pred <- pmax(train.pred,tv.min/3)
+      train.pred <- data.frame(predicted=as.numeric(train.pred))
+      train.res <- data.frame(ID=TrainData[,"ID"],observed=TrainData[,1], predicted=train.pred,longitude=TrainData[,"longitude"], latitude=TrainData[,"latitude"], altitude=regmat[ind,"altitude"])
+      train.results[[i]] <- train.res
+      
+      test.res <- data.frame(ID=TestData[,"ID"], observed=TestData[,1], predicted=as.numeric(fit.pred), longitude=TestData[,"longitude"], latitude=TestData[,"latitude"], altitude=regmat[-ind,"altitude"])
+      test.results[[i]] <- test.res
+      
       obs.pred <- data.frame(obs=testy,pred=fit.pred)
       coef.list[[i]]<-rbind(ie,me)
       dfresults<-data.frame(lambda=fitcv$lamhat,RMSE=defaultSummary(obs.pred)[1],Rsquared=defaultSummary(obs.pred)[2])
@@ -256,7 +281,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     }
     results[length(flist)+1,]<-c(NA,RMSE=defaultSummary(pred)[1],Rsquared=defaultSummary(pred)[2])
     coef.mat<-do.call(cbind,coef.list)
-    out<-list(measure=results,coef=coef.mat,obs.pred.df = pred)
+    out<-list(measure=results,coef=coef.mat,obs.pred.df = pred,folds=cv.folds,train.results=train.results,test.results=test.results)
     return(out)
   }
   
