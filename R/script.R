@@ -806,10 +806,11 @@ vr.line <- (variogramLine(vgr.def, maxdist = max(vr.def$dist)))
 plot(vr.def, vgr.def)
 
 test.data <- As.IntP.cv$test.results[[i]]
+test.data$residual <- test.data$observed - test.data$predicted
 coordinates(test.data) <- ~ longitude + latitude + altitude
 proj4string(test.data) <- CRS(gk_7)
 
-test.data@data$krige.pred <- krige(residual ~ 1, locations = res.data, newdata= test.data, model = vgr.def)@data$var1.pred #,nfold=foldid
+test.data@data$krige.pred <- krige.cv(residual ~ 1, test.data, model = vgr.def)@data$var1.pred #,nfold=foldid
 
 test.data$final.predicted <- test.data$predicted+test.data$krige.pred
 
@@ -827,6 +828,241 @@ RMSE(pred=final.results$predicted,obs=final.results$observed)
 caret::R2(pred=final.results$final.predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
 RMSE(pred=final.results$final.predicted,obs=final.results$observed)
 
+
+#===================================================================================================================
+#======================= SOM nested kros validacija ================================================================
+#===================================================================================================================
+
+SOM.IntP.cv <- penint3DP(fun=SOM.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+SOM.IntP.cv$measure
+summary(SOM.IntP.cv$measure[1:5,])
+
+
+As.IntPH.cv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
+As.IntPH.cv$measure
+summary(As.IntPH.cv$measure[1:5,])
+
+for(i in 1:5){
+  
+  TTP.p <- SOM.IntP.cv$train.results[[i]]
+  TTP.p$residual <- TTP.p$observed-TTP.p$predicted
+  
+  res.profs<-data.frame(ID=TTP.p$ID,IntHP=TTP.p$residual)
+  
+  borind<-ddply(bor,.(ID))
+  
+  borind<-borind[complete.cases(borind$SOM),] # Ovde treba zameniti...
+  
+  "%ni%" <- Negate("%in%")
+  
+  ind <- which(borind[,"ID"] %in% unique(res.profs$ID))
+  
+  res.profs <- cbind(res.profs, borind[ind,c("Top","Bottom","Soil.Type","x","y","altitude")])
+  
+  res.list<-list(sites=ddply(res.profs,.(ID),summarize,y=y[1],x=x[1],Soil.Type=Soil.Type[1]),horizons=res.profs[,c("ID","Top","Bottom","IntHP")])
+  res.profs<-join(res.list$sites,res.list$horizons, type="inner")
+  
+  res.profs.data<-res.profs
+  
+  depths(res.profs) <- ID ~ Top + Bottom
+  site(res.profs) <- ~x+y
+  coordinates(res.profs)<-~x+y
+  proj4string(res.profs)<- CRS("+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m")
+  
+  
+  res.data <- TTP.p
+  
+  spline.profs <- mpspline(res.profs, "IntHP",d = t(c(0,5,15,30,60,80)))
+  spline.res <- spline.profs$var.1cm
+  
+  cm <- rep(1:80,dim(spline.res)[2])
+  
+  a <-ddply(res.data,.(ID),summarize ,longitude=longitude[1],latitude=latitude[1])
+  
+  b <- a[rep(seq_len(nrow(a)), each=80),]
+  
+  bm <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
+  
+  bm <- na.omit(bm)
+  
+  vc <- variogram(residual~1, data=bm, locations=~longitude+latitude+altitude,cutoff=50,width=3)
+  vc
+  plot(vc)
+  
+  vc.fit = fit.variogram(vc, vgm(1.5, "Gau", 10, 0)) #SOM
+  plot(vc, vc.fit)
+  
+  res.pp <- ddply(res.data, .(ID),summarize,x=longitude[1],y=latitude[1],altitude=altitude[1],residual=residual[1],observed=observed[1])
+  coordinates(res.pp) <- ~x+y+altitude
+  proj4string(res.pp)<- CRS(gk_7)
+  
+  bubble(res.pp,"residual")
+  sv <- variogram(residual~1, data=res.pp,cutoff=4000,width= 420) # 480 za As
+  sv
+  plot(sv)
+  
+  sv.fit =  fit.variogram(sv, vgm(15, "Sph", 2000, 5)) #SOM
+  
+  plot(sv, sv.fit)
+  
+  ##
+  coordinates(res.data) <- ~ longitude + latitude + altitude
+  
+  proj4string(res.data) <- CRS(gk_7)
+  
+  vr.def <- variogram(residual~1,res.data, cutoff=4000,width=550)  # 420 za SOM
+  plot(vr.def)
+  
+  vgr.def <-fit.variogram(vr.def, vgm(15, "Sph", 2000, 5,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))  #za SOM
+  As.vgr <- vgr.def
+  vr.line <- (variogramLine(vgr.def, maxdist = max(vr.def$dist)))
+  
+  plot(vr.def, vgr.def)
+  
+  test.data <- SOM.IntP.cv$test.results[[i]]
+  test.data$residual <- test.data$observed - test.data$predicted
+  coordinates(test.data) <- ~ longitude + latitude + altitude
+  proj4string(test.data) <- CRS(gk_7)
+  
+  test.data@data$krige.pred <- krige.cv(residual ~ 1, test.data, model = vgr.def)@data$var1.pred #,nfold=foldid
+  
+  test.data$final.predicted <- test.data$predicted+test.data$krige.pred
+  
+  SOM.IntP.cv$test.results[[i]] <- test.data@data
+  
+}
+
+final.results <- do.call(rbind,SOM.IntP.cv$test.results)
+
+
+caret::R2(pred=final.results$predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$predicted,obs=final.results$observed)
+
+
+caret::R2(pred=final.results$final.predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$final.predicted,obs=final.results$observed)
+
+
+
+#===================================================================================================================
+#======================= pH nested kros validacija ================================================================
+#===================================================================================================================
+
+pH.IntP.cv <- penint3DP(fun=pH.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+pH.IntP.cv$measure
+summary(pH.IntP.cv$measure[1:5,])
+
+
+As.IntPH.cv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
+As.IntPH.cv$measure
+summary(As.IntPH.cv$measure[1:5,])
+
+for(i in 1:5){
+  
+  TTP.p <- pH.IntP.cv$train.results[[i]]
+  TTP.p$residual <- TTP.p$observed-TTP.p$predicted
+  
+  res.profs<-data.frame(ID=TTP.p$ID,IntHP=TTP.p$residual)
+  
+  borind<-ddply(bor,.(ID))
+  
+  borind<-borind[complete.cases(borind$pH),] # Ovde treba zameniti...
+  
+  "%ni%" <- Negate("%in%")
+  
+  ind <- which(borind[,"ID"] %in% unique(res.profs$ID))
+  
+  res.profs <- cbind(res.profs, borind[ind,c("Top","Bottom","Soil.Type","x","y","altitude")])
+  
+  res.list<-list(sites=ddply(res.profs,.(ID),summarize,y=y[1],x=x[1],Soil.Type=Soil.Type[1]),horizons=res.profs[,c("ID","Top","Bottom","IntHP")])
+  res.profs<-join(res.list$sites,res.list$horizons, type="inner")
+  
+  res.profs.data<-res.profs
+  
+  depths(res.profs) <- ID ~ Top + Bottom
+  site(res.profs) <- ~x+y
+  coordinates(res.profs)<-~x+y
+  proj4string(res.profs)<- CRS("+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m")
+  
+  
+  res.data <- TTP.p
+  
+  spline.profs <- mpspline(res.profs, "IntHP",d = t(c(0,5,15,30,60,80)))
+  spline.res <- spline.profs$var.1cm
+  
+  cm <- rep(1:80,dim(spline.res)[2])
+  
+  a <-ddply(res.data,.(ID),summarize ,longitude=longitude[1],latitude=latitude[1])
+  
+  b <- a[rep(seq_len(nrow(a)), each=80),]
+  
+  bm <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
+  
+  bm <- na.omit(bm)
+  
+  vc <- variogram(residual~1, data=bm, locations=~longitude+latitude+altitude,cutoff=50,width=3)
+  vc
+  plot(vc)
+  
+  vc.fit = fit.variogram(vc, vgm(0.05, "Gau", 20, 0)) #pH
+  
+  plot(vc, vc.fit)
+  
+  res.pp <- ddply(res.data, .(ID),summarize,x=longitude[1],y=latitude[1],altitude=altitude[1],residual=residual[1],observed=observed[1])
+  coordinates(res.pp) <- ~x+y
+  proj4string(res.pp)<- CRS(gk_7)
+  
+  w <- c(650)
+  
+  #bubble(res.pp,"residual")
+  sv <- variogram(residual~1, data=res.pp)#,cutoff=4000,width=650)
+  sv
+  plot(sv)
+  
+  sv.fit =  fit.variogram(sv, vgm(0.3, "Sph", 2000, 0.1)) #pH
+  
+  #sv.fit= autofitVariogram(residual~1, res.pp, miscFitOptions = list(merge.small.bins = TRUE))
+  
+  plot(sv, sv.fit)
+  
+  ##
+  coordinates(res.data) <- ~ longitude + latitude + altitude
+  
+  proj4string(res.data) <- CRS(gk_7)
+  
+  w.def <- c(550)
+  
+  vr.def <- variogram(residual~1,res.data)#, cutoff=4000,width=550)
+  plot(vr.def)
+  
+  vgr.def <-fit.variogram(vr.def, vgm(0.3, "Sph", 2000, 0.1,anis=c(0,0,0,1,(vc.fit$range/100)[2]/sv.fit$range[2])))  #za pH
+  As.vgr <- vgr.def
+  vr.line <- (variogramLine(vgr.def, maxdist = max(vr.def$dist)))
+  
+  plot(vr.def, vgr.def)
+  
+  test.data <- pH.IntP.cv$test.results[[i]]
+  test.data$residual <- test.data$observed - test.data$predicted
+  coordinates(test.data) <- ~ longitude + latitude + altitude
+  proj4string(test.data) <- CRS(gk_7)
+  
+  test.data@data$krige.pred <- krige.cv(residual ~ 1, test.data, model = vgr.def)@data$var1.pred #,nfold=foldid
+  
+  test.data$final.predicted <- test.data$predicted+test.data$krige.pred
+  
+  pH.IntP.cv$test.results[[i]] <- test.data@data
+  
+}
+
+final.results <- do.call(rbind,pH.IntP.cv$test.results)
+
+
+caret::R2(pred=final.results$predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$predicted,obs=final.results$observed)
+
+
+caret::R2(pred=final.results$final.predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$final.predicted,obs=final.results$observed)
 
 ############################################## Variogrami za krajnju predikciju #############################################################################
 
@@ -1276,6 +1512,7 @@ plot(sv)
 sv.fit =  fit.variogram(sv, vgm(0.3, "Sph", 1000, 0.1)) #pH
 
 plot(sv, sv.fit)
+
 
 #=================================== plot stratified fold =======================================================
 rdat <- bor
