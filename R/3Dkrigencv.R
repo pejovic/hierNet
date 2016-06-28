@@ -1,3 +1,9 @@
+# This function perform the 3D kriging leave-one-out cross-validation. It was perform for the each fold in the outer loop in the nested cross-validation. 
+# Input data: 
+
+  # fun - function, the function which relates the response variable and covariates. 
+  # reg.ncv - output from the penint3Dncv. This output contains slots, among others, with the train and test data/results. 
+    # The train data/results consists the n-fold lists with the observed and predicted values from the final trend model on the train data. These folds serve for 3D variogram modeling for each      
 
 
 krige3D.ncv <- function(fun, reg.ncv, profs, cogrids, model = FALSE, krige=FALSE ,v.cutoff, v.width, v.vgm = vgm(1.5, "Gau", 10, 0), sp.cutoff, sp.width, sp.vgm = vgm(15, "Sph", 2000, 5) ) {
@@ -35,9 +41,6 @@ krige3D.ncv <- function(fun, reg.ncv, profs, cogrids, model = FALSE, krige=FALSE
     #======================= Preaparing profiles with residuals for vertical variogram fitting ======================================
     res.profs<-data.frame(ID=train.results$ID,residuals=train.results$residual) # 
     
-    #borind<-borind[complete.cases(borind$SOM),] # Ovde treba zameniti...
-    
-    
     ind <- which(prof.sp[,"ID"] %in% unique(res.profs$ID)) # extracting indices for ith fold
     
     res.profs <- cbind(res.profs, prof.sp[ind,c("Top","Bottom","x","y","altitude")])
@@ -52,7 +55,6 @@ krige3D.ncv <- function(fun, reg.ncv, profs, cogrids, model = FALSE, krige=FALSE
     coordinates(res.profs)<-~x+y
     proj4string(res.profs)<- proj4string(profs)
     
-    
     res.data <- train.results
     
     spline.profs <- mpspline(res.profs, "residuals",d = t(c(0,5,15,30,60,80)))
@@ -63,6 +65,8 @@ krige3D.ncv <- function(fun, reg.ncv, profs, cogrids, model = FALSE, krige=FALSE
     b <- a[rep(seq_len(nrow(a)), each=80),]
     bm <- cbind(b,residual=as.numeric(spline.res),altitude=cm)
     bm <- na.omit(bm)
+    
+    #====================== Fitting 1D variogram =============================================================
     
     if(!model){
       
@@ -135,6 +139,7 @@ krige3D.ncv <- function(fun, reg.ncv, profs, cogrids, model = FALSE, krige=FALSE
         #names(var3D.list[[i]])<-paste("P",i,sep="")
       }
       
+    #================================= 3D kriging =============================================================================
     if(krige){
       test.data <- reg.ncv$test.results[[i]]
       test.data$residual <- test.data$observed - test.data$predicted

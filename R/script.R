@@ -101,6 +101,10 @@ source(paste(getwd(),"R","plotfolds.R",sep="/"))
 #source(paste(getwd(),"R","predint3D.R",sep="/"))
 source(paste(getwd(),"R","penint3D_defP.R",sep="/"))
 source(paste(getwd(),"R","predint3DP.R",sep="/"))
+source(paste(getwd(),"R","3Dkrigencv.R",sep="/"))
+source(paste(getwd(),"R","multiplot.R",sep = "/"))
+source(paste(getwd(),"R","krige3Dpred.R",sep = "/"))
+
 
 fun <- As.fun
 
@@ -133,7 +137,7 @@ dev.off()
 stargazer(do.call(rbind, rdat.folds$`SOM summary`), summary=FALSE, digits=2, type="latex")
 stargazer(do.call(rbind,as.list(rdat.folds$`altitude summary`)[[1]]), summary=FALSE, digits=2, type="text")
 
-#============= eps file ====================================
+#============= plot to file ====================================
 
 library(ggplot2)
 postscript("SOMfolds.pdf",horizontal=FALSE, paper="special",height=11,width=8)
@@ -188,6 +192,19 @@ latex.table.by(summary.n5cv, num.by.vars = 2)
 
 #=================== predint3D ====================================================
 
+IntP <- predint3DP(fun=SOM.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+
+str(IntP)
+source(paste(getwd(),"R","krige3Dpred.R",sep = "/"))
+IntP.pred <- krige3Dpred(fun=SOM.fun, reg.pred=IntP, profs=bor.profs, model = TRUE, krige=TRUE, v.cutoff=60, v.width=3, v.vgm = vgm(1.5, "Gau", 10, 0), sp.cutoff=4000, sp.width=420, sp.vgm = vgm(15, "Sph", 2000, 5))
+
+plot(IntP.pred$var1D)
+plot(IntP.pred$var2D)
+plot(IntP.pred$var3D)
+
+str(IntP.pred$)
+
+summary(IntP.pred$prediction[[3]]$res.pred)
 
 fun <- SOM.fun
 
@@ -484,7 +501,11 @@ BaseL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FA
 BaseP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
 IntL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
-IntP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+IntP <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=TRUE ,hier = FALSE, int=TRUE, depths=c(-0.1) ,depth.fun="poly",cores=8)
+
+fun=As.fun; profs = bor.profs; cogrids = gridmaps.sm2D; pred=TRUE ;hier = FALSE; int=TRUE; depths=c(-0.1) ;depth.fun="poly";cores=8
+lambda=seq(0,5,0.1);deg=3;fold=5;cent=3;chunk=20000;preProc=TRUE;seed=321
+
 
 IntHL <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred=FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 system.time(IntHP <- predint3DP(fun=fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1) ,depth.fun="poly",cores=8))
@@ -728,6 +749,25 @@ As.IntPH.cv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = grid
 As.IntPH.cv$measure
 summary(As.IntPH.cv$measure[1:5,])
 
+#============================================= krige3D.ncv =================================================================
+source(paste(getwd(),"R","3Dkrigencv.R",sep="/"))
+krige.res <- krige3D.ncv(As.fun,reg.ncv = As.IntP.cv,profs=bor.profs,cogrids = gridmaps.sm2D, model=TRUE,krige=TRUE,v.cutoff = 60,v.width = 3,sp.cutoff = 4000,sp.width = 480, sp.vgm = vgm(1200, "Sph", 2000, 300),v.vgm = vgm(250, "Gau", 30, 5))
+
+final.results <- do.call(rbind,krige.res$test.results)
+
+caret::R2(pred=final.results$predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$predicted,obs=final.results$observed)
+
+caret::R2(pred=final.results$final.predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$final.predicted,obs=final.results$observed)
+
+multiplot(plotlist=krige.res$var1D,cols=2)
+multiplot(plotlist=krige.res$var2D,cols=2)
+multiplot(plotlist=krige.res$var3D,cols=2)
+#============================================================================================================================
+
+
+
 for(i in 1:5){
 
 TTP.p <- As.IntP.cv$train.results[[i]]
@@ -833,9 +873,31 @@ RMSE(pred=final.results$final.predicted,obs=final.results$observed)
 #======================= SOM nested kros validacija ================================================================
 #===================================================================================================================
 
-SOM.IntP.cv <- penint3DP(fun=SOM.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+SOM.IntP.cv <- penint3DP(fun=SOM.fun, profs = bor.profs, seed=243, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
 SOM.IntP.cv$measure
 summary(SOM.IntP.cv$measure[1:5,])
+
+source(paste(getwd(),"R","3Dkrigencv.R",sep="/"))
+krige.res <- krige3D.ncv(SOM.fun,reg.ncv = SOM.IntP.cv,profs=bor.profs,cogrids = gridmaps.sm2D, model=TRUE,krige=TRUE,v.cutoff = 60,v.width = 3,sp.cutoff = 4000,sp.width = 420)
+
+final.results <- do.call(rbind,krige.res$test.results)
+
+caret::R2(pred=final.results$predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$predicted,obs=final.results$observed)
+
+caret::R2(pred=final.results$final.predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$final.predicted,obs=final.results$observed)
+
+multiplot(plotlist=krige.res$var1D,cols=2)
+multiplot(plotlist=krige.res$var2D,cols=2)
+multiplot(plotlist=krige.res$var3D,cols=2)
+
+
+
+fun=SOM.fun;reg.ncv = SOM.IntP.cv;profs=bor.profs;cogrids = gridmaps.sm2D; model=TRUE;v.cutoff = 60;v.width = 3;sp.cutoff = 4000;sp.width = 420
+v.vgm = vgm(1.5, "Gau", 10, 0); sp.vgm = vgm(15, "Sph", 2000, 5)
+
+
 
 
 As.IntPH.cv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
@@ -948,15 +1010,33 @@ RMSE(pred=final.results$final.predicted,obs=final.results$observed)
 #======================= pH nested kros validacija ================================================================
 #===================================================================================================================
 
-pH.IntP.cv <- penint3DP(fun=pH.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+pH.IntP.cv <- penint3DP(fun=pH.fun, profs = bor.profs, seed=243, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
 pH.IntP.cv$measure
 summary(pH.IntP.cv$measure[1:5,])
 
 
-As.IntPH.cv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
-As.IntPH.cv$measure
-summary(As.IntPH.cv$measure[1:5,])
+pH.IntPH.cv <- penint3DP(fun=pH.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
+pH.IntPH.cv$mepHure
+summary(pH.IntPH.cv$mepHure[1:5,])
 
+#================================= 3Dkrige.ncv ================================================================
+
+source(paste(getwd(),"R","3Dkrigencv.R",sep="/"))
+krige.res <- krige3D.ncv(pH.fun,reg.ncv = pH.IntP.cv,profs=bor.profs,cogrids = gridmaps.sm2D, model=TRUE,krige=TRUE,v.cutoff = 60,v.width = 3,sp.cutoff = 4000,sp.width = 650,v.vgm = vgm(0.05, "Gau", 30, 0),sp.vgm = vgm(0.3, "Sph", 2000, 0.1))
+
+final.results <- do.call(rbind,krige.res$test.results)
+
+caret::R2(pred=final.results$predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$predicted,obs=final.results$observed)
+
+caret::R2(pred=final.results$final.predicted,obs=final.results$observed, formula="traditional") # Rsquared for RK
+RMSE(pred=final.results$final.predicted,obs=final.results$observed)
+
+multiplot(plotlist=krige.res$var1D,cols=2)
+multiplot(plotlist=krige.res$var2D,cols=2)
+multiplot(plotlist=krige.res$var3D,cols=2)
+
+#=============================================================================================================
 for(i in 1:5){
   
   TTP.p <- pH.IntP.cv$train.results[[i]]
