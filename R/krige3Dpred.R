@@ -5,7 +5,6 @@
 # reg.ncv - output from the penint3Dncv. This output contains slots, among others, with the train and test data/results. 
 # The train data/results consists the n-fold lists with the observed and predicted values from the final trend model on the train data. These folds serve for 3D variogram modeling for each      
 
-#fun=SOM.fun; reg.pred=IntP; profs=bor.profs; model = FALSE; krige=FALSE ;v.cutoff=60; v.width=3; v.vgm = vgm(1.5, "Gau", 10, 0); sp.cutoff=4000; sp.width=420; sp.vgm = vgm(15, "Sph", 2000, 5)
 
 krige3Dpred <- function(fun, reg.pred, profs, model = FALSE, krige=FALSE ,v.cutoff, v.width, v.vgm = vgm(1.5, "Gau", 10, 0), sp.cutoff, sp.width, sp.vgm = vgm(15, "Sph", 2000, 5) ) {
   
