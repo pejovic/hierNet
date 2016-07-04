@@ -205,14 +205,10 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
     strat<-stratfold3d(targetVar=tv,seed=123,regdat=allData,folds=fold,cent=3,dimensions="2D",IDs=TRUE,sum=TRUE)
     flist<-strat$folds
     
-    allData <- cbind(regmat.def,X, regmat[,c(pr.names[1], sp.names,"hdepth")])
-    allData <- plyr::rename(allData, replace=c("x" = "longitude", "y" = "latitude"))
-    
     results <- data.frame(lambda = rep(NA,length(flist)+1),RMSE=rep(NA,length(flist)+1),Rsquared=rep(NA,length(flist)+1))
     coef.list = as.list(rep(NA,length(strat)))
     pred <- data.frame()
     
-
     for(i in 1:length(flist)){
       ind<-which(allData$ID %in% do.call(c,flist[-i])) # izdvajaje indeksa instanci koje pribadaju foldovima za trening
       TrainData<-as.data.frame(do.call(cbind,allData[ind,])) # izdvajanje trening podacima
@@ -221,7 +217,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
       Test.ID.Index<-flist[i] # Izdvajanje dela liste foldova sa test podacima
       
       #=======================================
-
+      
       ff<-stratfold3d(tv,TrainData, folds=fold,sum=TRUE,IDs=TRUE,preProc=FALSE)$folds
       
       folds.in.list <- as.list(rep(NA,length(ff)))
@@ -232,7 +228,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
         foldid[folds.in.list[[j]]]<-j
       }
       
-
+      
       trainx <- as.matrix(TrainData[,colnames(modmat)]) 
       testx <- as.matrix(TestData[,colnames(modmat)])
       trainzz <- as.matrix(TrainData[,colnames(X)])
@@ -240,7 +236,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
       trainy <- (TrainData[,tv])
       testy <- (TestData[,tv])
       
-      fit = hierNet.path(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,trace=0,flmin=20)
+      fit = hierNet.path(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,trace=0)
       fitcv = hierNet.cv(fit, trainx, trainy, folds=folds.in.list, trace=0)
       fit.def <- hierNet(trainx,trainy, zz = trainzz,diagonal=FALSE,strong=TRUE,lam=fit$lamlist[which(fitcv$lamhat==fit$lamlist)])
       fit.pred <- predict(fit.def,newx=testx,newzz = testzz)
