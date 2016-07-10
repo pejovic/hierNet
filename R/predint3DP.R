@@ -98,7 +98,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     }
     
     nzv.par<-preProcess(modmat,method=c("nzv"))
-    #modmat<-as.data.frame(predict(nzv.par,modmat))
+    modmat<-as.data.frame(predict(nzv.par,modmat))
     
     names(modmat)<-gsub( "\\_|/|\\-|\"|\\s" , "." , names(modmat) )
     
@@ -143,7 +143,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
   
   regmat.def <- as.data.frame(cbind(regmat[, tv],modmat))
   names(regmat.def) <- c(tv, names(regmat.def[-1]))
-  
+  min.obs <- min(regmat.def[,1])
   #=====================================================================================================
   
   
@@ -172,7 +172,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     
     lasso.mod <- cv.glmnet(as.matrix(allData[,-1]),allData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
     lasso.pred <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(allData[,-1]))
-    lasso.pred <- pmax(lasso.pred,0.5)
+    lasso.pred <- pmax(lasso.pred,min.obs/3)
     cvm <- sqrt(lasso.mod$cvm[which(lasso.mod$lambda==lasso.mod$lambda.min)])
     obs.pred <- data.frame(obs=allData[,1],pred=as.numeric(lasso.pred))
     coef.list <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
@@ -199,7 +199,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
       
       #lasso.mod <- cv.glmnet(as.matrix(TrainData[,-1]),TrainData[,1],alpha=1,lambda=lambda,foldid=foldid,type.measure="mse")
       lasso.pred.cv <- predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(TestData[,-1]))
-      lasso.pred.cv <- pmax(lasso.pred.cv,0.5)
+      lasso.pred.cv <- pmax(lasso.pred.cv,min.obs/3)
       obs.pred.cv <- data.frame(obs=TestData[,1],pred=as.numeric(lasso.pred.cv))
       coef.list.cv[[i]] <- predict(lasso.mod,type="coefficients",s=lasso.mod$lambda.min)
       dfresults.cv <- data.frame(lambda=lasso.mod$lambda.min,RMSE=defaultSummary(obs.pred.cv)[1],Rsquared=defaultSummary(obs.pred.cv)[2])
@@ -211,9 +211,9 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     
     #,dummy.par=dummy.par
     
-    if(depth.fun =="linear"){ regres <- list(results=results.cv, model=lasso.mod, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"],observed = data.frame(observed=allData[,1]) , predicted = data.frame(predicted=lasso.pred), residual = data.frame(residual=allData[,1]-lasso.pred)))
+    if(depth.fun =="linear"){ regres <- list(results=results.cv, model=lasso.mod, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"],observed = data.frame(observed=allData[,1]) , predicted = as.numeric(lasso.pred), residual = as.numeric(allData[,1]-lasso.pred)))
     } else {
-      regres<-list(results=results.cv, model=lasso.mod ,preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=lasso.pred), residual = data.frame(residual=allData[,1]-lasso.pred))) 
+      regres<-list(results=results.cv, model=lasso.mod ,preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = as.numeric(lasso.pred), residual = as.numeric(allData[,1]-lasso.pred))) 
     }
 
     
@@ -247,7 +247,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     fitcv = hierNet.cv(fit, allx, ally, folds=folds.in.list, trace=0)
     fit.def <- hierNet(allx,ally, zz = allzz,diagonal=FALSE,strong=TRUE,lam=fit$lamlist[which(fitcv$lamhat==fit$lamlist)])
     fit.pred <- predict(fit.def,newx=allx,newzz = allzz)
-    fit.pred <- pmax(fit.pred,0.5)
+    fit.pred <- pmax(fit.pred,min.obs/3)
     
     if(depth.fun =="linear"){ ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(colnames(modmat))]) 
     } else {
@@ -287,7 +287,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
       testy <- (TestData[,tv])
       
       fit.pred.cv <- predict(fit.def,newx=testx,newzz = testzz)
-      fit.pred.cv <- pmax(fit.pred.cv,0.5)
+      fit.pred.cv <- pmax(fit.pred.cv,min.obs/3)
       obs.pred.cv <- data.frame(obs=testy,pred=fit.pred.cv)
       dfresults.cv<-data.frame(lambda=fitcv$lamhat,RMSE=defaultSummary(obs.pred.cv)[1],Rsquared=defaultSummary(obs.pred.cv)[2])
       results.cv[i,]<-dfresults.cv
@@ -298,9 +298,9 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     results.cv[length(flist)+1,] <- c(NA,RMSE=defaultSummary(pred.cv)[1],Rsquared=defaultSummary(pred.cv)[2])
     
     #,dummy.par=dummy.par
-    if(depth.fun =="linear"){ regres<-list(results=results.cv,model=fit.def, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=fit.pred), residual = data.frame(residual=allData[,1]-fit.pred)))
+    if(depth.fun =="linear"){ regres<-list(results=results.cv,model=fit.def, preProc=list(cont.par=cont.par, alt.par=alt.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = as.numeric(fit.pred), residual = as.numeric(allData[,1]-fit.pred)))
     } else {
-      regres<-list(results=results.cv, model=fit.def, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = data.frame(predicted=fit.pred), residual = data.frame(residual=allData[,1]-fit.pred))) 
+      regres<-list(results=results.cv, model=fit.def, preProc=list(cont.par=cont.par, alt.par=alt.par, poly.par=poly.par, dummy.par=dummy.par ,nzv.par=nzv.par),cv.par=dfresults,coefficients=coef.list,pred=data.frame(allData[,c(tail(names(allData),4))],altitude = regmat[,"altitude"], observed = data.frame(observed=allData[,1]), predicted = as.numeric(fit.pred), residual = as.numeric(allData[,1]-fit.pred))) 
     }
     
     }
@@ -317,6 +317,11 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     }
     
     #dodati names za poly... names(modmat)<-c(names(modmat)[1:(length(names(modmat))-(deg-1))],(paste("poly",c(2:deg),sep="")))
+    #if(depth.fun != "linear"){ XX <- mclapply(XX,function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(poly.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
+    #} else { XX <-  mclapply(XX, function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores)  %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
+    #}
+    
+    #ovo ispod je sa nzv a gore je bez. (mora biti uskladjeno sa training data.)
     if(depth.fun != "linear"){ XX <- mclapply(XX,function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(poly.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
     } else { XX <-  mclapply(XX, function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
     }
@@ -329,7 +334,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
       r  <- rep(1:ceiling(n/chunk),each=chunk)[1:n]
       ZZ <- lapply(XX, function(x) split(x,r))
       
-      #cores<-detectCores()
+      cores<-detectCores()
       registerDoParallel(cores=cores)
       
       for(i in 1:length(ZZ)){ 
@@ -366,7 +371,8 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     
         for(i in 1:length(new3D)){
           new3D[[i]]$pred <- as.numeric(lapply(XX, function(x) predict(lasso.mod,s=lasso.mod$lambda.min,newx=as.matrix(x)))[[i]])
-          new3D[[i]]$pred <- pmax(new3D[[i]]$pred,0.5)
+          new3D[[i]]$pred <- pmax(new3D[[i]]$pred,min.obs/3)
+          new3D[[i]] <- new3D[[i]][,"pred"]
           }
     
     } else {
@@ -377,7 +383,8 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
         allZZ <- as.matrix(ZZ[[i]][,colnames(X)])
         
         new3D[[i]]$pred <- as.numeric(predict(fit.def,newx=allXX,newzz = allZZ))
-        new3D[[i]]$pred <- pmax(new3D[[i]]$pred,0.5)
+        new3D[[i]]$pred <- pmax(new3D[[i]]$pred,min.obs/3)
+        new3D[[i]] <- new3D[[i]][,"pred"]
         }
 
       }
