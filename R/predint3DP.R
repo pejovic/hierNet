@@ -97,9 +97,9 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
       modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(dummy.par,newdata = .)
     }
     
-    nzv.par<-preProcess(modmat,method=c("nzv"))
-    modmat<-as.data.frame(predict(nzv.par,modmat))
-    
+    #nzv.par<-preProcess(modmat,method=c("nzv"))
+    #modmat<-as.data.frame(predict(nzv.par,modmat))
+    nzv.par <- 0
     names(modmat)<-gsub( "\\_|/|\\-|\"|\\s" , "." , names(modmat) )
     
   }
@@ -317,16 +317,16 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
     }
     
     #dodati names za poly... names(modmat)<-c(names(modmat)[1:(length(names(modmat))-(deg-1))],(paste("poly",c(2:deg),sep="")))
-    #if(depth.fun != "linear"){ XX <- mclapply(XX,function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(poly.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
-    #} else { XX <-  mclapply(XX, function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores)  %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
-    #}
-    
-    #ovo ispod je sa nzv a gore je bez. (mora biti uskladjeno sa training data.)
-    if(depth.fun != "linear"){ XX <- mclapply(XX,function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(poly.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
-    } else { XX <-  mclapply(XX, function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
+    if(depth.fun != "linear"){ XX <- mclapply(XX,function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(poly.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
+    } else { XX <-  mclapply(XX, function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores)  %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
     }
     
-    #==================== Compute Interactions =========================
+    #ovo ispod je sa nzv a gore je bez. (mora biti uskladjeno sa training data.)
+    #if(depth.fun != "linear"){ XX <- mclapply(XX,function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(poly.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
+    #} else { XX <-  mclapply(XX, function(x) predict(cont.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(alt.par,newdata=x),mc.cores=cores) %>% mclapply(.,function(x) predict(dummy.par,newdata=x),mc.cores=cores) %>% mclapply(., function(x) as.data.frame(predict(nzv.par,newdata=x)),mc.cores=cores) %>% mclapply(., function(x) {colnames(x) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(x) );return(x)},mc.cores=cores)
+    #}
+    
+    #==================== Compute Interactions ==============================================================================
     
     if (int==TRUE){
       chunk <- chunk #20000 #chunk
