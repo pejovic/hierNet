@@ -97,9 +97,10 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
       modmat <- predict(cont.par,newdata = modmat) %>% predict(alt.par,newdata = .) %>% predict(dummy.par,newdata = .)
     }
     
-    #nzv.par<-preProcess(modmat,method=c("nzv"))
-    #modmat<-as.data.frame(predict(nzv.par,modmat))
-    nzv.par <- 0
+    nzv.par<-preProcess(modmat,method=c("nzv"))
+    modmat<-as.data.frame(predict(nzv.par,modmat))
+    #nzv.par <- 0
+
     names(modmat)<-gsub( "\\_|/|\\-|\"|\\s" , "." , names(modmat) )
     
   }

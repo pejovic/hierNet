@@ -19,22 +19,21 @@ library(foreach)
 library(stargazer)
 library(gstat)
 
-#path <- "C:/Users/User/Dropbox/Extensions of soil 3D trend models/Data and Scripts"
-
+path <- "C:/Users/User/Dropbox/Extensions of soil 3D trend models/Data and Scripts"
+path1 <- "D:/R_projects/int3D/R"
 #============ Functions============================================================
-source(paste(getwd(),"R","stratFold3D.R",sep="/"))
-#source(paste(getwd(),"R","penint3D_def.R",sep="/"))
-source(paste(getwd(),"R","plotfolds.R",sep="/"))
-#source(paste(getwd(),"R","predint3D.R",sep="/"))
-source(paste(getwd(),"R","penint3D_defP.R",sep="/"))
-source(paste(getwd(),"R","predint3DP.R",sep="/"))
-source(paste(getwd(),"R","3Dkrigencv.R",sep="/"))
-source(paste(getwd(),"R","multiplot.R",sep = "/"))
-source(paste(getwd(),"R","krige3Dpred.R",sep = "/"))
+source(paste(path1,"stratFold3D.R",sep="/"))
+source(paste(path1,"plotfolds.R",sep="/"))
+#source(paste(path1,"penint3D.R",sep="/"))
+source(paste(path1,"predint3D.R",sep="/"))
+source(paste(path1,"3Dkrigencv.R",sep="/"))
+source(paste(path1,"multiplot.R",sep = "/"))
+source(paste(path1,"krige3Dpred.R",sep = "/"))
+source(paste(path1,"penint3D_defP.R",sep="/"))
 #==================================================================================
 
-load("C:/Users/Milutin/Dropbox/Extensions of soil 3D trend models/Data and Scripts/BorData.rda")
-load("C:/Users/Milutin/Dropbox/Extensions of soil 3D trend models/Data and Scripts/covmaps.rda")
+load("C:/Users/User/Dropbox/Extensions of soil 3D trend models/Data and Scripts/BorData.rda")
+load("C:/Users/User/Dropbox/Extensions of soil 3D trend models/Data and Scripts/covmaps.rda")
 
 gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
 utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
@@ -54,6 +53,8 @@ CovAbb <- c("DEM","Aspect","Slope","TWI","ConvInd","CrSectCurv","LongCurv","ChNe
 
 #=================== DATA ============================================================
 bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","SOM","pH","Co","As")]
+bor.profs$logAs <- log(bor.profs$As)
+bor.profs$mid <- (bor.profs$Top+bor.profs$Bottom)/2
 depths(bor.profs) <- ID ~ Top + Bottom
 site(bor.profs) <- ~ Soil.Type + x + y
 coordinates(bor.profs) <- ~ x+y
@@ -137,6 +138,69 @@ As.IntP.ncv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = grid
 As.IntHL.ncv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="linear")
 As.IntHP.ncv <- penint3DP(fun=As.fun, profs = bor.profs, seed=443, cogrids = gridmaps.sm2D, hier = TRUE, int=TRUE, depth.fun="poly")
 
+#================================ Checking the variance of residuals along the depth for As ans Log(As) models ==================
+As.fun <- as.formula(paste("log(As) ~", paste(c(CovAbb,"altitude"), collapse="+")))
+logAs.fun <- as.formula(paste("logAs ~", paste(c(CovAbb,"altitude"), collapse="+")))
+
+As.IntP.ncv <- penint3DP(fun=As.fun, profs = bor.profs, seed=444, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+logAs.IntP.ncv <- penint3DP(fun=logAs.fun, profs = bor.profs, seed=444, cogrids = gridmaps.sm2D, hier = FALSE, int=TRUE, depth.fun="poly")
+
+
+Int<-As.IntP.ncv$test.results
+logInt<-logAs.IntP.ncv$test.results
+
+
+Int<-do.call(rbind,Int)
+logInt<-do.call(rbind,logInt)
+
+
+
+Int$residual <- Int$observed-Int$predicted
+logInt$residual <- logInt$observed-logInt$predicted
+
+d=0
+#Int results
+caret::R2(pred=Int[Int$altitude < d, "predicted"] ,obs=Int[Int$altitude < d, "observed"]) # Rsquared for RK
+RMSE(pred=Int[Int$altitude < d, "predicted"] ,obs=Int[Int$altitude < d, "observed"])
+#logInt results
+caret::R2(pred=logInt[logInt$altitude < d, "predicted"] ,obs=logInt[logInt$altitude < d, "observed"]) # Rsquared for RK
+RMSE(pred=logInt[logInt$altitude < d, "predicted"] ,obs=logInt[logInt$altitude < d, "observed"])
+
+
+dseq <- seq(-0.6,0,0.1)
+dseq[1] <- -1
+dseq[2] <- -0.6
+#R2.res <- rep(NA,length(dseq)-1)
+sd.res <- rep(NA,length(dseq)-1)
+log.sd.res <- rep(NA,length(dseq)-1)
+ni <- rep(NA,length(dseq)-1)
+log.ni <- rep(NA,length(dseq)-1)
+
+for(i in 1:length(dseq)-1){
+  d <- dseq[i+1]
+  #R2.res[i] <- caret::R2(pred=Base[Base$altitude < d, "predicted"] ,obs=Base[Base$altitude < d, "observed"])
+  sd.res[i] <- sd(x=(Int[Int$altitude <= d & Int$altitude > dseq[i] , "observed"]-Int[Int$altitude <= d & Int$altitude > dseq[i], "predicted"]))
+  ni[i] <- length((Int[Int$altitude <= d & Int$altitude > dseq[i], "observed"]-Int[Int$altitude <= d & Int$altitude > dseq[i], "predicted"]))
+}
+
+for(i in 1:length(dseq)-1){
+  d <- dseq[i+1]
+  #R2.res[i] <- caret::R2(pred=Int[Int$altitude < d, "predicted"] ,obs=Int[Int$altitude < d, "observed"])
+  log.sd.res[i] <- sd(x=(logInt[logInt$altitude <= d & Int$altitude > dseq[i], "observed"]-logInt[logInt$altitude <= d & Int$altitude > dseq[i], "predicted"]))
+  log.ni[i] <- length((logInt[logInt$altitude <= d & logInt$altitude > dseq[i], "observed"]-logInt[logInt$altitude <= d & logInt$altitude > dseq[i], "predicted"]))
+}
+
+int.sd.res <- sd.res
+log.int.sd.res <- log.sd.res
+
+res.sd <- data.frame(depth=c("0-10 cm","10-20 cm","20-30 cm","30-40 cm","40-60 cm","60- 100 cm"),
+                      sd.res=rev(int.sd.res),
+                      sd.log.res=rev(log.int.sd.res),
+                      n.obs=rev(ni))
+
+stargazer(res.sd,summary = FALSE,digits=2,type='text')
+#==================================================================================================================================
+
 #=================== Nested 5 fold cross-validation results for trend - Table 5 ===================================================
 
 summary.n5cv<-rbind(As.BaseL.ncv = As.BaseL.ncv$measure[6,], As.BaseP.ncv = As.BaseP.ncv$measure[6,], As.IntL.ncv = As.IntL.ncv$measure[6,], As.IntP.ncv = As.IntP.ncv$measure[6,], As.IntHL.ncv = As.IntHL.ncv$measure[6,], As.IntHP.ncv = As.IntHP.ncv$measure[6,])
@@ -179,7 +243,7 @@ BaseL.As <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, p
 BaseP.As <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = FALSE ,hier = FALSE, int=FALSE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
 IntL.As <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
-IntP.As <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = FALSE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
+IntP.As <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = TRUE ,hier = FALSE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
 
 IntHL.As <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = FALSE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="linear",cores=8)
 IntHP.As <- predint3DP(fun=As.fun, profs = bor.profs, cogrids = gridmaps.sm2D, pred = TRUE ,hier = TRUE, int=TRUE, depths=c(-0.1,-0.2,-0.3) ,depth.fun="poly",cores=8)
@@ -212,7 +276,7 @@ cmAs <- cmP.As[,c(1,7:10)]
 stargazer(cmP.As,summary = FALSE ,digits=3,type='latex')
 #=========================== 3D Kriging prediction ============================================================================================
 #=========================== The best model is IntP ===========================================================================================
-As.kriging.pred <- krige3Dpred(fun=As.fun, reg.pred=IntP.As, profs=bor.profs, model = TRUE, krige = FALSE, v.cutoff=40, v.width=3, sp.vgm = vgm(1200, "Sph", 2000, 300),v.vgm = vgm(250, "Gau", 30, 5), sp.cutoff=4000, sp.width=480)
+As.kriging.pred <- krige3Dpred(fun=As.fun, reg.pred=IntP.As, profs=bor.profs, model = TRUE, krige = TRUE, v.cutoff=40, v.width=3, sp.vgm = vgm(1200, "Sph", 2000, 300),v.vgm = vgm(250, "Gau", 30, 5), sp.cutoff=4000, sp.width=480)
 
 plot(As.kriging.pred$var1D) # Vertical variogram
 plot(As.kriging.pred$var2D) # Horizontal variogram
@@ -270,16 +334,16 @@ p2 <- spplot(gridpix, "As0.2", asp = 1, at = ramp,  col.regions = color.As,color
 p3 <- spplot(gridpix, "As0.3", asp = 1, at = ramp, col.regions = color.As,colorkey=ckey) # last plot contains the legend
 
 #================== plot to files ======================================================
-pdf("Asplot0.1.pdf",width=6,height=12)
+pdf("AsRKplot0.1.pdf",width=6,height=12)
 p1
 dev.off()
 
-pdf("Asplot0.2.pdf",width=6,height=12)
+pdf("AsRKplot0.2.pdf",width=6,height=12)
 p2
 dev.off()
 
 
-pdf("Asplot0.3.pdf",width=7,height=12)
+pdf("AsRKplot0.3.pdf",width=7,height=12)
 p3
 dev.off()
 #========================================================================================
