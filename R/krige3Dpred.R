@@ -116,7 +116,7 @@ krige3Dpred <- function(fun, reg.pred, profs, model = FALSE, krige=FALSE ,v.cuto
     
     #================ Fitting 3D variogram =============================================================
     coordinates(res.data) <- ~ longitude + latitude + altitude
-    #proj4string(res.data) <- CRS(gk_7)
+    #proj4string(res.data) <- proj4string(reg.pred$prediction[[1]])
     
     if(!model){
       
@@ -151,8 +151,8 @@ krige3Dpred <- function(fun, reg.pred, profs, model = FALSE, krige=FALSE ,v.cuto
       }  
 
   if(!model){
-  out <- list(prediction = reg.pred$prediction, var1D = var1D.list, var2D = var2D.list, var3D = var3D.list)}else{
-    out <- list(prediction = reg.pred$prediction, var1D = var1D.list, var2D = var2D.list, var3D = var3D.list, anis=(vc.fit$range/100)[2]/sv.fit$range[2])
+  out <- list(prediction = reg.pred$prediction, var1D = var1D.list, var2D = var2D.list, var3D = var3D.list )}else{
+    out <- list(prediction = reg.pred$prediction, var1D = var1D.list, var2D = var2D.list, var3D = var3D.list, variogramModels=list("1D"=vc.fit,"2D"=sv.fit,"3D"=vgr.def) ,anis=(vc.fit$range/100)[2]/sv.fit$range[2])
   }
   return(out)
 }
