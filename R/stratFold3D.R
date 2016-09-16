@@ -64,10 +64,10 @@ stratfold3d <- function(targetVar,regdat,folds=5,cent=3,preProc=TRUE,seed=666,di
     pom<-allData
   }
   allData$fold<-factor(allData$fold)
-  sum.list=list(by(allData$altitude,allData$fold,summary))
+  sum.list=list(by(allData$depth,allData$fold,summary))
   if(IDs==TRUE){index.list=(ID.list)}else{index.list=(folds.list)}
   sum.list<-list(allData,index.list,sum.list,by(allData[,paste(targetVar)],allData$fold,summary))
-  names(sum.list)<-c("Data","folds","altitude summary",paste(targetVar,"summary", sep=" "))
+  names(sum.list)<-c("Data","folds","depth summary",paste(targetVar,"summary", sep=" "))
 
   if(sum==TRUE){return(sum.list)}else{return(sum.list[[1]])}
 }

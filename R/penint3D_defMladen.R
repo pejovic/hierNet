@@ -27,13 +27,13 @@
 # depth.fun-remove
 # preproc
 
-As.fun <- as.formula(paste("SOM ~", paste(c(CovAbb,"depth"), collapse="+")))
-SOM.fun <- as.formula(paste("log(SOM) ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"depth"), collapse="+")))
+As.fun <- as.formula(paste("As ~", paste(c(CovAbb,"depth"), collapse="+")))
+SOM.fun <- as.formula(paste("SOM ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"depth"), collapse="+")))
 pH.fun <- as.formula(paste("pH ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"depth"), collapse="+")))
 
-base.model=SOM.fun; profiles=bor.profs; cov.grids=gridmaps.sm2D;poly.deg=3; num.folds=5;num.means=5;interactions=TRUE
+base.model=SOM.fun; profiles=bor.profs; cov.grids=gridmaps.sm2D; poly.deg=3; num.folds=5;num.means=5;interactions=TRUE; hier=TRUE;preproc=TRUE;seed=321
 
-sparsereg3Dncv<-function(base.model, profiles, cov.grids, hier=FALSE, lambda=seq(0,5,0.1), poly.deg=3, num.folds=5,num.means=3,interactions=TRUE,preproc=TRUE,seed=321){
+pre.sparsereg3D <- function(base.model, profiles, cov.grids, hier=FALSE, lambda=seq(0,5,0.1), poly.deg=3, num.folds=5,num.means=3,interactions=TRUE,preproc=TRUE,seed=321){
   
   "%ni%" <- Negate("%in%")
   
@@ -59,7 +59,7 @@ sparsereg3Dncv<-function(base.model, profiles, cov.grids, hier=FALSE, lambda=seq
   profiles$hdepth<-profiles$Bottom - profiles$Top
   
   #============== Overlay ========================================
-  profiles <- profiles[complete.cases(profiles[,c("ID",coord.names,"hdepth","depth",target)]),c("ID",coord.names,"hdepth","depth",target)]
+  profiles <- profiles[complete.cases(profiles[,c("ID",coord.names,"hdepth","depth",target)]),c("ID",target,"hdepth",coord.names,"depth")]
   coordinates(profiles) <- ~ x + y
   proj4string(profiles) <- p4s
   profiles <- spTransform(profiles, proj4string(cov.grids))
@@ -73,28 +73,28 @@ sparsereg3Dncv<-function(base.model, profiles, cov.grids, hier=FALSE, lambda=seq
   }
   
   #======== prepare regression matrix: ===========================
-  profiles <- cbind(as.data.frame(profiles), ov[,which(names(ov) %in% c(all.vars(base.model)))])
-  profiles <- profiles[complete.cases(profiles[,all.vars(base.model)]),] 
-  
-  #cov.data <- profiles[,c(all.vars(base.model)[-1])]
+  sp.cov.names <- names(ov[,which(names(ov) %in% c(all.vars(base.model)))])
+  profiles <- cbind(as.data.frame(profiles), ov[,sp.cov.names])
+  profiles <- profiles[complete.cases(profiles[,all.vars(base.model)]),c("ID",target,"hdepth",coord.names, sp.cov.names, "depth")] 
   
 #================== polynomial ======================================
   
   if(poly.deg > 1){
-    profiles<-cbind(profiles,poly(profiles$depth,poly.deg,raw=TRUE,simple=TRUE)[,-1])
-    names(profiles)<-c(names(profiles)[1:(length(names(profiles))-(poly.deg-1))],(paste("depth",c(2:poly.deg),sep="")))
+    profiles <- cbind(profiles,poly(profiles$depth,poly.deg,raw=TRUE,simple=TRUE)[,-1])
+    names(profiles) <- c(names(profiles)[1:(length(names(profiles))-(poly.deg-1))],(paste("depth",c(2:poly.deg),sep="")))
   }
 
 #===================== Dummy coding =======================================
   
   dummy.par <- dummyVars(as.formula(paste("~", paste(names(profiles), collapse="+"))),profiles,levelsOnly=FALSE)
   profiles <- predict(dummy.par, newdata = profiles)
-  colnames(profiles)<-gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(profiles) )
+  colnames(profiles) <- gsub( "\\_|/|\\-|\"|\\s" , "." , colnames(profiles) )
+  main.effects <- colnames(profiles)[-which(colnames(profiles) %in% c("ID","hdepth",target,coord.names))]
 #==========================================================================
   
   if (interactions == TRUE){
     
-    X <- hierNet::compute.interactions.c(as.matrix(profiles[,-c(1:6)]),diagonal=FALSE)
+    X <- hierNet::compute.interactions.c(as.matrix(profiles[,-c(which(colnames(profiles) %in% c("ID",target,"hdepth",coord.names)))]),diagonal=FALSE)
     
     if(poly.deg > 1){ columns.to.keep <- colnames(X[,do.call(c,lapply(strsplit(colnames(X),":"), function(x) x[2] %in% c("depth",paste("depth",c(2:poly.deg),sep="")) & x[1] %ni% c("depth",paste("depth",c(2:poly.deg),sep=""))))]) } else {
                       columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("depth", names(.), value=TRUE)) %>% colnames())
@@ -110,63 +110,162 @@ sparsereg3Dncv<-function(base.model, profiles, cov.grids, hier=FALSE, lambda=seq
 
   
   
-#===================== Dummy coding =======================================
+#===================== preprocessing =======================================
 
   if(preproc==TRUE){
 
-     st.par <- as.data.frame(profiles[,-c(1:6)]) %>% preProcess(.,method=c("center", "scale"))
-     profiles[,-c(1:6)] <- predict(st.par,newdata = profiles[,-c(1:6)])
+     st.par <- as.data.frame(profiles) %>% subset(., select = c(main.effects,columns.to.keep)) %>% preProcess(.,method=c("center", "scale"))
+     profiles <- predict(st.par,newdata = profiles)
      
-     nzv.par<-preProcess(profiles[,-c(1:6)],method=c("nzv"))
-     profiles[,-c(1:6)]<-as.data.frame(predict(nzv.par,profiles[,-c(1:6)]))
+     #nzv.par<-preProcess(profiles[,-c(1:6)],method=c("nzv"))
+     #profiles[,-c(1:6)]<-as.data.frame(predict(nzv.par,profiles[,-c(1:6)]))
 
   }
 
 
-#====================== Columns to keep and cov.data ==================================================== 
+#======================== Stratification ====================================================
   
-  if (interactions==TRUE){
-    if (hier!=TRUE){
-          X <- hierNet::compute.interactions.c(as.matrix(cov.data),diagonal=FALSE)
-      
-          if(depth.fun!="linear"){ columns.to.keep <- colnames(X[,do.call(c,lapply(strsplit(colnames(X),":"), function(x) x[2] %in% c("altitude",paste("poly",c(2:poly.deg),sep="")) & x[1] %ni% c("altitude",paste("poly",c(2:poly.deg),sep=""))))]) } else {
-                                   columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
-          }
-          
-          
-          #colnames(X[,do.call(c,lapply(strsplit(colnames(X),":"), function(x) x[2] %in% c("altitude",paste("poly",c(2:poly.deg),sep="")) & x[1] %ni% c("altitude",paste("poly",c(2:poly.deg),sep=""))))])
-            
-          if(depth.fun!="linear"){ cov.data <- cbind(cov.data,X[,colnames(X) %in% columns.to.keep])} else {
-                                   cov.data <- cbind(cov.data,X[,colnames(X) %in% columns.to.keep])
-                                 }
-      
-                   }  else { X <- hierNet::compute.interactions.c(as.matrix(cov.data),diagonal=FALSE)
-      
-                   if(depth.fun!="linear"){ columns.to.keep <- colnames(X[,do.call(c,lapply(strsplit(colnames(X),":"), function(x) x[2] %in% c("altitude",paste("poly",c(2:poly.deg),sep="")) & x[1] %ni% c("altitude",paste("poly",c(2:poly.deg),sep=""))))]) } else {
-                     columns.to.keep <- (X %>% as.data.frame() %>% subset(., select=grep("altitude", names(.), value=TRUE)) %>% colnames())
-                   }
-      
-                            X[,colnames(X) %ni% columns.to.keep ] <- 0
-                            
-                            cov.data <- cov.data
-      
-                           } 
-    
-                   } else {
-      
-                           cov.data <- cov.data
-    
-             }
-    
+  profiles <- as.data.frame(profiles)
+  profiles <- plyr::rename(profiles, replace=c("x" = "longitude", "y" = "latitude"))
+
+  strat<-stratfold3d(targetVar=target,seed=seed,regdat=profiles,folds=num.folds,cent=num.means,preProc=FALSE,dimensions="2D",IDs=TRUE,sum=TRUE)
+  profile.folds.list <- strat$folds
+  obs.folds.list <- stratfold3d(targetVar=target, seed=seed,regdat=profiles, folds=num.folds,cent=num.means, preProc=FALSE, dimensions="2D", IDs=FALSE,sum=TRUE)$folds
 #=====================================================================================================
   
-  regmat.def <- as.data.frame(cbind(regmat[, target],cov.data))
-  names(regmat.def) <- c(target, names(regmat.def[-1]))
-  target.min <- min(regmat.def[,1])
-#=====================================================================================================
+  out <- list(profiles = profiles, model = list(target = target, main.effects = main.effects, poly.deg = poly.deg, hier = hier, depth.interactions = columns.to.keep, all.interactions = colnames(X)), num.folds = num.folds, num.means = num.means, preproc = list(dummy.par = dummy.par, st.par = st.par, columns.to.keep = columns.to.keep), folds = list(profile.folds.list = profile.folds.list, obs.folds.list = obs.folds.list, depth.summary = strat[[3]], target.summmary = strat[[4]]))
+  return(out)
+  
+}  
+  
 
-  if(!hier){
+pre.som <- pre.sparsereg3D(base.model = SOM.fun, hier = TRUE, profiles=bor.profs, cov.grids = gridmaps.sm2D)
+  
 
+
+sparsereg3D.ncv <- function(sparsereg = pre.som, lambda = seq(0,5,0.1), seed = 321){
+  
+  flist <- sparsereg$folds$profile.folds.list
+  cv.folds <- sparsereg$folds$obs.folds.list
+  profiles <- sparsereg$profiles
+  num.folds <- sparsereg$num.folds
+  num.means <- sparsereg$num.means
+  
+  target <- sparsereg$model$target
+  target.min <- min(profiles[,target])
+  hier = sparsereg$model$hier
+  main.effects = sparsereg$model$main.effects
+  poly.deg = sparsereg$model$poly.deg
+  columns.to.keep = sparsereg$model$interactions
+  all.interactions = sparsereg$model$all.interactions
+  
+  results <- data.frame(lambda = rep(NA,length(flist)+1), RMSE = rep(NA,length(flist)+1), Rsquared = rep(NA,length(flist)+1))
+  coef.list = as.list(rep(NA,length(flist)))
+  test.prediction <- data.frame()
+  train.results <- as.list(rep(NA,length(flist)))
+  test.results <- as.list(rep(NA,length(flist)))
+  
+  for(i in 1:length(flist)){
+    train.obs.ind <- which(profiles$ID %in% do.call(c, flist[-i]))
+    train.data <- profiles[train.obs.ind,]
+    train.profiles.ids <- flist[-i]
+    test.data <- profiles[-train.obs.ind,]
+    test.profiles.ids <- flist[i]
+    
+    # =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  = 
+    
+    inner.partitioning <- stratfold3d(target, train.data, folds = num.folds, seed = seed ,cent = num.means, dimensions = "2D", sum = TRUE, IDs = TRUE, preProc = FALSE)$folds
+    
+    new.folds <- as.list(rep(NA,length(inner.partitioning)))
+    names(new.folds) <- paste("fold",c(1:length(inner.partitioning)),sep = "")
+    
+    which.new.fold <- rep(NA,dim(train.data)[1])
+    
+    for(j in 1:length(inner.partitioning)){
+      new.folds[[j]]<-which(train.data$ID %in% inner.partitioning[[j]])
+      which.new.fold[new.folds[[j]]]<-j
+    }
+    
+    # =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  = 
+    if(!hier){
+      
+      train.data <- train.data %>% subset(., select = c(target, main.effects, columns.to.keep)) 
+      test.data <- test.data %>% subset(., select = c(target, main.effects, columns.to.keep))
+      # =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  Lasso  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  = 
+      
+      lasso.cv <- cv.glmnet(as.matrix(train.data[,-1]), train.data[,1], alpha = 1,lambda = lambda, foldid = which.new.fold, type.measure = "mse")
+      test.pred <- predict(lasso.cv, s = lasso.cv$lambda.min, newx = as.matrix(test.data[,-1]))
+      test.pred <- pmax(test.pred, target.min/3)
+      
+      train.pred <- predict(lasso.cv,s = lasso.cv$lambda.min, newx = as.matrix(train.data[,-1]))
+      train.pred <- pmax(train.pred,target.min/3)
+      train.pred <- data.frame(predicted = as.numeric(train.pred))
+      train.per.fold <- data.frame(ID = profiles[train.obs.ind,"ID"], observed = train.data[,1], predicted = train.pred,longitude = profiles[train.obs.ind,"longitude"], latitude = profiles[train.obs.ind,"latitude"], depth = profiles[train.obs.ind,"depth"])
+      train.results[[i]] <- train.per.fold
+      
+      test.per.fold <- data.frame(ID = profiles[-train.obs.ind,"ID"], observed = test.data[,1], predicted = as.numeric(test.pred), longitude = profiles[-train.obs.ind,"longitude"], latitude = profiles[-train.obs.ind,"latitude"], depth = profiles[-train.obs.ind,"depth"])
+      test.results[[i]] <- test.per.fold
+      
+      test.obs.pred <- data.frame(obs = test.data[,1], pred = as.numeric(test.pred))
+      coef.list[[i]] <- predict(lasso.cv, type = "coefficients", s = lasso.cv$lambda.min)
+      fold.measures <- data.frame(lambda = lasso.cv$lambda.min, RMSE = defaultSummary(test.obs.pred)[1], Rsquared = defaultSummary(test.obs.pred)[2])
+      results[i,] <- fold.measures
+      test.prediction <- rbind(test.prediction,test.obs.pred)
+      
+    }else{
+      
+      trainx <- as.matrix(train.data[,main.effects]) 
+      testx <- as.matrix(test.data[,main.effects])
+      trainzz <- as.matrix(train.data[,all.interactions])
+      testzz <- as.matrix(test.data[,all.interactions])
+      trainy <- train.data[,target]
+      testy <- test.data[,target]
+      
+      fit = hierNet.path(trainx, trainy, zz = trainzz, diagonal=FALSE, strong=TRUE, trace=0, stand.main = FALSE)
+      fitcv = hierNet.cv(fit, trainx, trainy, folds = new.folds, trace=0)
+      fit.def <- hierNet(trainx, trainy, zz = trainzz, diagonal=FALSE, strong=TRUE, lam=fit$lamlist[which(fitcv$lamhat==fit$lamlist)])
+      test.pred <- predict(fit.def,newx=testx,newzz = testzz)
+      test.pred <- pmax(test.pred,target.min/3)
+      ie <- as.matrix(fit$th[,,which(fitcv$lamhat==fit$lamlist)][,length(main.effects)])
+      me<-fit$bp[,which(fitcv$lamhat==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat==fit$lamlist), drop = F]
+
+      train.pred <- predict(fit.def,newx=trainx,newzz = trainzz)
+      train.pred <- pmax(train.pred,target.min/3)
+      train.pred <- data.frame(predicted=as.numeric(train.pred))
+      train.per.fold <- data.frame(ID = train.data[,"ID"], observed = train.data[,1], predicted = train.pred, longitude = train.data[,"longitude"], latitude = train.data[,"latitude"], depth = profiles[train.obs.ind,"depth"])
+      train.results[[i]] <- train.per.fold
+      
+      test.per.fold <- data.frame(ID = test.data[,"ID"], observed = test.data[,1], predicted = as.numeric(test.pred), longitude = test.data[,"longitude"], latitude = test.data[,"latitude"], depth = profiles[-train.obs.ind,"depth"])
+      test.results[[i]] <- test.per.fold
+      
+      test.obs.pred <- data.frame(obs=testy,pred=test.pred)
+      coef.list[[i]] <- rbind(ie,me)
+      fold.measures <- data.frame(lambda=fitcv$lamhat,RMSE=defaultSummary(test.obs.pred)[1],Rsquared=defaultSummary(test.obs.pred)[2])
+      results[i,] <- fold.measures
+      test.prediction<-rbind(test.prediction,test.obs.pred)
+      }
+    }
+  
+  results[length(flist)+1,] <- c(NA, RMSE = defaultSummary(test.prediction)[1], Rsquared = defaultSummary(test.prediction)[2])
+  coef.mat <- do.call(cbind, coef.list)
+  out <- list(accuracy.measures = results, coefficients = coef.mat, test.prediction = test.prediction, folds = cv.folds, train.results = train.results, test.results = test.results)
+  return(out)
+  
+}
+
+pre.som <- pre.sparsereg3D(base.model = SOM.fun, hier = TRUE, profiles=bor.profs, cov.grids = gridmaps.sm2D, poly.deg = 3)    
+sp.reg.som <- sparsereg3D.ncv(sparsereg = pre.som, lambda = seq(0,5,0.1), seed = 321)
+    
+sp.reg.som$accuracy.measures
+    
+    
+    
+    
+    
+    
+    
+    
+    
     allData <- cbind(regmat.def, regmat[,c(pr.names[1], coord.names,"hdepth")])
     allData <- plyr::rename(allData, replace=c("x" = "longitude", "y" = "latitude"))
     
