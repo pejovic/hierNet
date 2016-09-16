@@ -16,13 +16,16 @@
 # chunk - number of rows in prediction matrix (subselection needed to speedup the prediction computation)
 # cores - number of cores
 
+#fun=SOM.fun; profs=bor.profs; cogrids=gridmaps.sm2D; hier=FALSE; lambda=seq(0,5,0.1); deg=3; fold=5; cent=3; int=TRUE; depth.fun="poly"; preProc=TRUE; seed=321
+
+
 penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fold=5,cent=3,int=TRUE,depth.fun=list("linear","poly"),preProc=TRUE,seed=321){
   
   "%ni%" <- Negate("%in%")
   
   if(hier==TRUE){int=TRUE}
   
-  if(int == FALSE){hier = FALSE}
+  #if(int == FALSE){hier = FALSE}
   
 
   #======= all columns of interest ===============================
@@ -77,7 +80,7 @@ penint3DP<-function(fun, profs, cogrids,hier=FALSE,lambda=seq(0,5,0.1),deg=3,fol
   
   if(preProc==TRUE){
 
-    cont.par <- regmat[,c("ID",all.vars(fun)[-1])] %>% ddply(.,.(ID),function(x) head(x,1)) %>% subset(.,select=-c(ID,altitude),drop=FALSE) %>% subset(., select=which(sapply(., is.numeric))) %>% preProcess(.,method=c("center", "scale"))
+    cont.par <- regmat[,c("ID",all.vars(fun)[-1])] %>% subset(.,select=-c(ID,altitude),drop=FALSE) %>% subset(., select=which(sapply(., is.numeric))) %>% preProcess(.,method=c("center", "scale"))
     
                            {alt.par <-  modmat %>% subset(.,select=altitude) %>% preProcess(.,method=c("center", "scale"))}
                            #if(depth.fun =="linear")

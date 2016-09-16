@@ -77,7 +77,7 @@ predint3DP<-function(fun, profs, cogrids, hier=FALSE,pred=TRUE,lambda=seq(0,5,0.
   
   if(preProc==TRUE){
     
-    cont.par <- regmat[,c("ID",all.vars(fun)[-1])] %>% ddply(.,.(ID),function(x) head(x,1)) %>% subset(.,select=-c(ID,altitude),drop=FALSE) %>% subset(., select=which(sapply(., is.numeric))) %>% preProcess(.,method=c("center", "scale"))
+    cont.par <- regmat[,c("ID",all.vars(fun)[-1])] %>% subset(.,select=-c(ID,altitude),drop=FALSE) %>% subset(., select=which(sapply(., is.numeric))) %>% preProcess(.,method=c("center", "scale"))
     
     {alt.par <-  modmat %>% subset(.,select=altitude) %>% preProcess(.,method=c("center", "scale"))}
     #if(depth.fun =="linear")
