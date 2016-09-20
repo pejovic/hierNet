@@ -397,7 +397,7 @@ sparsereg3D.pred <- function(sparsereg = out, lambda = seq(0,5,0.1), prediction 
     if(!hier){
 
       for(i in 1:length(grids.3D)){
-        grids.3D[[i]]$pred <- as.numeric(lapply(grids.3D, function(x) predict(lasso.cv,s=lasso.cv$lambda.min,newx = as.matrix(x)))[[i]])
+        grids.3D[[i]]$pred <- as.numeric(predict(lasso.cv,s=lasso.cv$lambda.min, newx = grids.3D[[i]]))
         grids.3D[[i]]$pred <- pmax(grids.3D[[i]]$pred,target.min/3)
         grids.3D[[i]] <- grids.3D[[i]][,"pred"]
       }
