@@ -1,3 +1,71 @@
+# Demonstration of penint3D functions for evaluation and prediction of 3D interaction models 
+# Target variable : Arsenic
+# Data: Bor
+
+library(rgdal)
+library(GSIF)
+library(gdalUtils)
+library(raster)
+library(plyr)
+library(aqp)
+library(psych)
+library(mda)
+library(classInt)
+library(caret)
+library(MASS)
+library(splines)
+library(glmnet)
+library(hierNet)
+library(magrittr)
+library(doParallel)
+library(foreach)
+library(stargazer)
+library(gstat)
+
+path <- "~/Dropbox/Extensions of soil 3D trend models/Data and Scripts"
+#path <- "C:/Users/Milutin/Dropbox/Extensions of soil 3D trend models/Data and Scripts"
+
+load(paste(path,"BorData.rda",sep = "/"))
+load(paste(path,"covmaps.rda",sep = "/"))
+
+
+#================== Spatial references ===============================================================
+gk_7 <- "+proj=tmerc +lat_0=0 +lon_0=21 +k=0.9999 +x_0=7500000 +y_0=0 +ellps=bessel +towgs84=574.027,170.175,401.545,4.88786,-0.66524,-13.24673,0.99999311067 +units=m"
+utm <- "+proj=utm +zone=34 +ellps=GRS80 +towgs84=0.26901,0.18246,0.06872,-0.01017,0.00893,-0.01172,0.99999996031 +units=m"
+
+#================== Names and abbrevations of covariates =================================================
+
+CovNames <- c("Digital Elevation Model", "Aspect", "Slope","Topographic Wetness Index", "Convergence Index" ,"Cross Sectional Curvature", "Longitudinal Curvature", "Channel Network Base Level" ,"Vertical Distance to Channel Network", "Negative Openness","Positive Openness", "Wind Effect (East)","Wind Effect (North-West)","Down-wind Dilution", "Cross-wind Dilution" ,"Corine Land Cover 2006", "Soil Type")
+CovAbb <- c("DEM","Aspect","Slope","TWI","ConvInd","CrSectCurv","LongCurv","ChNetBLevel","VDistChNet","NegOp", "PosOp","WEeast","WEnw","DD","CD","clc","SoilType")
+
+#=================== DATA ============================================================
+bor.profs <- bor[,c("ID","x","y","Soil.Type","Top","Bottom","As","pH","Co","SOM")]
+bor.profs$logSOM <- log(bor.profs$SOM)
+bor.profs$logAs <- log(bor.profs$As)
+bor.profs$mid <- (bor.profs$Top+bor.profs$Bottom)/2
+depths(bor.profs) <- ID ~ Top + Bottom
+site(bor.profs) <- ~ Soil.Type + x + y
+coordinates(bor.profs) <- ~ x+y
+proj4string(bor.profs) <- CRS(utm)
+#=====================================================================================
+
+
+
+As.fun <- as.formula(paste("As ~", paste(c(CovAbb,"depth"), collapse="+")))
+SOM.fun <- as.formula(paste("SOM ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"depth"), collapse="+")))
+pH.fun <- as.formula(paste("pH ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"depth"), collapse="+")))
+
+# if you want to run each step of functions, run the line bellow.
+#base.model=SOM.fun; profiles=bor.profs; cov.grids=gridmaps.sm2D; poly.deg=1; num.folds=10; num.means=5; interactions=TRUE; hier=FALSE; preproc=TRUE; seed=321
+
+
+
+
+
+
+# stratfold3D function
+# type: built-in
+
 # Create stratified folds, taking into account 3D position of observation.
 #   1. In the first step, observations are clustered according to k-means clustering (k=cent)
 #   2. then, in each cluster:
@@ -5,7 +73,8 @@
 #       b. profiles were sampled randomly according to number of folds
 #   3. Merge each fold with corresponding folds in other clusters
 
-
+# Input data:
+# ==============================
 # regdat - input data matrix with "ID", "hdept" and coordinates columns.
 # targetVar - name of target variable
 # folds - number of folds
@@ -13,7 +82,7 @@
 # dimensions - "2D" or "3D"; if dimensions = "3D", k-means clustering takes depth into computation
 # IDs (binary) - identify if the list of folds with profiles' IDs must be returned
 # sum (binary) - identify if the summary statistics for each fold should be computed (to inspect the folds)
-
+# ==============================
 
 stratfold3d <- function(targetVar, regdat, folds = 5, cent = 3, seed = 666, dimensions = list("2D","3D"), IDs = TRUE, sum = FALSE){
   
@@ -83,41 +152,19 @@ stratfold3d <- function(targetVar, regdat, folds = 5, cent = 3, seed = 666, dime
 }
 
 
+#=========== pre. sparsereg3D - function for performing whole data preparation for model selection and model assessment =======
+#==== Input data are :
 
-
-# solution for including all polynomial terms in interactions.
-
-# predint3D is function for making prediction based on interaction approach.
-# fun - function
-# profs - Soil Profile Collection
-# cogrids - SpatialPixelsDataFrame with covariates.
-# hier - logical, does the hierarchial principle need to be honor
-# pred - logocal, if TRUE , prediction on grids will be made
-# lambda - grid of lambda (regularization parameter for lasso)
-# deg - degree of polynomial depth function
-# fold - number of folds
-# cent - number of centers for k-means clustering
-# int - logical, if TRUE , interaction will be included in model
-# preProc - logical, if TRUE, covariates will be scaled and centered
-# chunk - number of rows in prediction matrix (subselection needed to speedup the prediction computation)
-# cores - number of cores
-
-# sparsereg3D
-# fun-base.model
-# profs-profiles
-# cov.grids
-# poly.deg
-# cv.folds
-# cent-num.means
-# interactions
-# depth.fun-remove
-# preproc
-
-As.fun <- as.formula(paste("As ~", paste(c(CovAbb,"depth"), collapse="+")))
-SOM.fun <- as.formula(paste("SOM ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"depth"), collapse="+")))
-pH.fun <- as.formula(paste("pH ~", paste(c(CovAbb[-which(CovAbb %in% c("CD","DD"))],"depth"), collapse="+")))
-
-base.model=SOM.fun; profiles=bor.profs; cov.grids=gridmaps.sm2D; poly.deg=1; num.folds=10; num.means=5; interactions=TRUE; hier=FALSE; preproc=TRUE; seed=321
+# base.model - object of class "formula" in the form of: "target variable~covariates+depth" (without interactions)
+# profiles - object of class "SoilProfileCollection" with observations of target variables
+# cov.grids - object of class SpatialPixelsDataFrame with covariates
+# poly.deg - number defining the degree of polynomial depth function
+# cv.folds - number of folds (necessary for data partitioning)
+# cent-num.means - number of clusters in k-means clustering (necessary for data partitioning)
+# interactions - binary
+# preproc - binary
+# hier - binary
+# 
 
 pre.sparsereg3D <- function(base.model, profiles, cov.grids, hier=FALSE, lambda=seq(0,5,0.1), poly.deg=3, num.folds=5,num.means=3,interactions=TRUE,preproc=TRUE,seed=321){
   
@@ -219,9 +266,9 @@ pre.sparsereg3D <- function(base.model, profiles, cov.grids, hier=FALSE, lambda=
   profiles <- as.data.frame(profiles) #
   profiles <- plyr::rename(profiles, replace=c("x" = "longitude", "y" = "latitude")) #renaming coordinate axes to "longitude" "latitude" (requirement of stratfold3D function)
 
-  strat <- stratfold3d(targetVar = target, seed = seed, regdat = profiles, folds = num.folds, cent = num.means, preProc = FALSE, dimensions = "2D", IDs = TRUE, sum = TRUE) # Applying "stratfold3D" function in order to make stratified folds
+  strat <- stratfold3d(targetVar = target, seed = seed, regdat = profiles, folds = num.folds, cent = num.means, dimensions = "2D", IDs = TRUE, sum = TRUE) # Applying "stratfold3D" function in order to make stratified folds
   profile.folds.list <- strat$folds # Extracting list of folds with profiles indexes (with indexes identifying what fold each profile contains)
-  obs.folds.list <- stratfold3d(targetVar=target, seed=seed,regdat=profiles, folds=num.folds,cent=num.means, preProc=FALSE, dimensions="2D", IDs=FALSE,sum=TRUE)$folds ## Extracting list of folds of observation indexes (with indexes identifying what observation each profile contains)
+  obs.folds.list <- stratfold3d(targetVar=target, seed=seed,regdat=profiles, folds=num.folds,cent=num.means, dimensions="2D", IDs=FALSE,sum=TRUE)$folds ## Extracting list of folds of observation indexes (with indexes identifying what observation each profile contains)
 #=====================================================================================================
   
   # Creating of object for output containing all necessary data for model selection, prediction and model assessment via nested cv.
@@ -241,7 +288,7 @@ pre.sparsereg3D <- function(base.model, profiles, cov.grids, hier=FALSE, lambda=
 # lambda - vector of lambda values for lasso regression
 # seed - random number generator (in order to make computation reproducible)
 
-sparsereg3D.ncv <- function(pre.sparsereg, lambda = seq(0,5,0.1), seed = 321){
+sparsereg3D.ncv <- function(sparsereg, lambda = seq(0,5,0.1), seed = 321){
   
   #== Extracting data from "sparsereg" object:
   flist <- sparsereg$folds$profile.folds.list # list of folds with indexes of profiles
@@ -281,7 +328,7 @@ sparsereg3D.ncv <- function(pre.sparsereg, lambda = seq(0,5,0.1), seed = 321){
     
     # =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  =  
     
-    inner.partitioning <- stratfold3d(target, train.data, folds = num.folds, seed = seed ,cent = num.means, dimensions = "2D", sum = TRUE, IDs = TRUE, preProc = FALSE)$folds
+    inner.partitioning <- stratfold3d(target, train.data, folds = num.folds, seed = seed ,cent = num.means, dimensions = "2D", sum = TRUE, IDs = TRUE)$folds
     
     new.folds <- as.list(rep(NA,length(inner.partitioning)))
     names(new.folds) <- paste("fold",c(1:length(inner.partitioning)),sep = "")
@@ -388,7 +435,7 @@ sparsereg3D.ncv <- function(pre.sparsereg, lambda = seq(0,5,0.1), seed = 321){
 # depths - depths defining on which depth prediction has to be made (only if prediction = TRUE)
 # chunk - number that defines the number of cells which will be process in one step (in order to speed-up the computation process)
 
-sparsereg3D.pred <- function(pre.sparsereg, lambda = seq(0,5,0.1), prediction = TRUE, seed = 321, depths = c(-.1,-.3), chunk = 1000){
+sparsereg3D.pred <- function(sparsereg, lambda = seq(0,5,0.1), prediction = TRUE, seed = 321, depths = c(-.1,-.3), chunk = 1000){
 
   #== Extracting data from "sparsereg" object:
   flist = sparsereg$folds$profile.folds.list # list of folds with indexes of profiles
@@ -550,13 +597,13 @@ sparsereg3D.pred <- function(pre.sparsereg, lambda = seq(0,5,0.1), prediction = 
 }
   
 
-pre.som <- pre.sparsereg3D(base.model = SOM.fun, hier = TRUE, profiles=bor.profs, cov.grids = gridmaps.sm2D)
+pre.som <- pre.sparsereg3D(base.model = SOM.fun, hier = FALSE, profiles = bor.profs, cov.grids = gridmaps.sm2D)
 
 sparsereg = out
 
 
 pre.som <- pre.sparsereg3D(base.model = SOM.fun, hier = FALSE, profiles=bor.profs, interactions = TRUE, num.folds = 10, cov.grids = gridmaps.sm2D, poly.deg = 3)    
-sp.reg.som <- sparsereg3D.ncv(sparsereg = pre.som, lambda = seq(0,5,0.1), seed = 321)
+sp.reg.som <- sparsereg3D.ncv(pre.sparsereg = pre.som, lambda = seq(0,5,0.1), seed = 321)
 
 sp.reg.som <- sparsereg3D.pred(sparsereg = pre.som, prediction =  TRUE ,lambda = seq(0,5,0.1), seed = 321)
 
