@@ -1,7 +1,5 @@
 ---
-title: "Welcome"
-output: 
-  github_document: default
+
 ---
 
 
