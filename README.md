@@ -1,8 +1,7 @@
 ---
-title: ""
-output:
+title: "Welcome"
+output: 
   github_document: default
-  Path to sparsereg3D: default
 ---
 
 
